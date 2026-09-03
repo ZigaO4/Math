@@ -17,6 +17,8 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <style>
   :root{
     --bg: #08090B;
@@ -106,6 +108,10 @@
     border:1px solid var(--border); background: var(--bg); color: var(--ink-soft);
   }
   .layout-opt.active{ background: var(--primary); color:#08090B; border-color: var(--primary); font-weight:600; }
+  .dropdown input[type="email"], .dropdown input[type="password"], .dropdown input[type="text"]{
+    width:100%; font-family:inherit; font-size:12px; padding:8px 10px; margin-bottom:0;
+    border:1px solid var(--border); border-radius:4px; background: var(--bg); color: var(--ink);
+  }
 
   .stats-bar{
     display:flex; gap:18px; font-size:13px; color:var(--ink-soft); flex-wrap:wrap;
@@ -160,6 +166,7 @@
   .cal-cell{ aspect-ratio: 1; border-radius:4px; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:13px; color: var(--ink-soft); background:var(--card); position:relative; cursor:pointer; }
   .cal-cell.empty{ border:none; background:transparent; }
   .cal-summary{ margin-top:18px; padding-top:14px; border-top:1px solid var(--border); font-size:13px; color: var(--ink-soft); text-align:center; }
+  .cal-summary div + div{ margin-top:4px; }
   .cal-summary strong{ color:var(--ink); }
 
   /* Problems grid */
@@ -248,6 +255,10 @@
               </div>
               <input type="file" id="importFileInput" accept="application/json" style="display:none;">
             </div>
+            <div class="dropdown-section">
+              <div class="label">Sync</div>
+              <div id="syncStatus" style="font-size:12px;color:var(--ink-soft);">Not synced yet.</div>
+            </div>
           </div>
         </div>
       </div>
@@ -274,7 +285,10 @@
         </div>
       </div>
       <div class="cal-grid" id="calGrid"></div>
-      <div class="cal-summary">Daily problems solved this month: <strong id="calMonthTotal">0</strong></div>
+      <div class="cal-summary">
+        <div>Daily problems solved this month: <strong id="calMonthTotal">0</strong></div>
+        <div>Total problems solved this month: <strong id="calMonthAllTotal">0</strong></div>
+      </div>
     </div>
 
     <div id="view-problems" style="display:none;">
@@ -399,8 +413,6 @@
   let data = { problems: [], events: [], currentId: null, dailyCurrent: null, dailyHistory: {}, theme: 'green', layoutMode: 'auto' };
   let calMonth = new Date().getMonth();
   let calYear = new Date().getFullYear();
-  let saveInFlight = false;
-  let saveQueued = false;
   let detailProblemId = null;
 
   function todayStr(d){
@@ -412,14 +424,14 @@
   function escapeHtml(s){ return s.replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   const ACTION_MESSAGES = { solved:'Marked solved.', hint:'Hint noted for this problem.', giveup:'Marked as given up.' };
 
-  async function loadData(){
+  async function loadLocalData(){
     try{
-      const res = await window.storage.get(STORAGE_KEY, false);
-      if(res && res.value){
-        const parsed = JSON.parse(res.value);
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        const parsed = JSON.parse(raw);
         data = Object.assign({ problems: [], events: [], currentId: null, dailyCurrent: null, dailyHistory: {}, theme: 'green', layoutMode: 'auto' }, parsed);
       }
-    }catch(e){ /* no data yet */ }
+    }catch(e){ /* no data yet, or storage unavailable */ }
     if(data.theme === 'purple') data.theme = 'green';
     applyTheme(data.theme || 'green');
     applyLayout();
@@ -427,23 +439,74 @@
     ensureDailyForToday();
   }
 
-  async function attemptSave(retries){
-    retries = retries === undefined ? 2 : retries;
+  async function saveData(){
     try{
-      const result = await window.storage.set(STORAGE_KEY, JSON.stringify(data), false);
-      if(!result) throw new Error('empty result from storage.set');
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }catch(e){
-      if(retries > 0){ await new Promise(r=>setTimeout(r, 700)); return attemptSave(retries - 1); }
-      console.error('Storage save failed after retries', e);
-      setTimeout(()=>saveData(), 4000);
+      console.error('Local save failed', e);
+    }
+    await pushToCloud();
+  }
+
+  // ---- Firebase (cross-device sync, no login — a shared code identifies the document) ----
+  // Paste your web app's config from Firebase console → Project settings → Your apps.
+  const firebaseConfig = {
+    apiKey: "AIzaSyBr2GL_2Zj3L-MrlROSFqLuW6tXJovDcoQ",
+    authDomain: "math-94356.firebaseapp.com",
+    projectId: "math-94356",
+    storageBucket: "math-94356.firebasestorage.app",
+    messagingSenderId: "218599655157",
+    appId: "1:218599655157:web:2f9b97095044b8c9b3e7bc"
+  };
+
+  // Every device reads/writes this one fixed document — no code, no login, fully automatic.
+  const SYNC_DOC = 'primary';
+  let db = null;
+
+  try{
+    if(firebaseConfig.apiKey && firebaseConfig.apiKey !== 'YOUR_API_KEY'){
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.firestore();
+      db.enablePersistence({ synchronizeTabs: true }).catch(()=>{});
+    }
+  }catch(e){ console.error('Firebase init failed', e); }
+
+  function updateSyncStatus(text){
+    const el = document.getElementById('syncStatus');
+    if(el) el.textContent = text;
+  }
+
+  async function pushToCloud(){
+    if(!db) return;
+    try{
+      await db.collection('syncedData').doc(SYNC_DOC).set({ payload: JSON.stringify(data), updatedAt: Date.now() });
+      updateSyncStatus('Synced.');
+    }catch(e){
+      console.error('Cloud save failed', e);
+      updateSyncStatus('Could not reach the cloud — saved locally only, will retry next change.');
     }
   }
-  async function saveData(){
-    if(saveInFlight){ saveQueued = true; return; }
-    saveInFlight = true;
-    await attemptSave();
-    saveInFlight = false;
-    if(saveQueued){ saveQueued = false; saveData(); }
+
+  async function pullFromCloud(){
+    if(!db) return;
+    try{
+      const snap = await db.collection('syncedData').doc(SYNC_DOC).get();
+      if(snap.exists && snap.data().payload){
+        data = Object.assign({ problems: [], events: [], currentId: null, dailyCurrent: null, dailyHistory: {}, theme: 'green', layoutMode: 'auto' }, JSON.parse(snap.data().payload));
+        if(data.theme === 'purple') data.theme = 'green';
+        applyTheme(data.theme || 'green');
+        applyLayout();
+        ensurePracticeCurrent();
+        ensureDailyForToday();
+        renderEverything();
+        updateSyncStatus('Synced.');
+      } else {
+        await pushToCloud();
+      }
+    }catch(e){
+      console.error('Could not reach the cloud', e);
+      updateSyncStatus('Could not reach the cloud — using local data for now.');
+    }
   }
 
   function applyTheme(theme){
@@ -555,7 +618,6 @@
     okBtn.onclick = ()=>{ cleanup(); if(opts.onOk) opts.onOk(); };
     cancelBtn.onclick = ()=>{ cleanup(); if(opts.onCancel) opts.onCancel(); };
   }
-  document.getElementById('confirmModalBackdrop').addEventListener('click', e=>{ if(e.target.id==='confirmModalBackdrop'){ e.currentTarget.classList.remove('open'); } });
 
   function renderStats(){
     const today = todayStr();
@@ -703,11 +765,12 @@
     let startOffset = firstDay.getDay() - 1; if(startOffset < 0) startOffset = 6;
     const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
     for(let i=0;i<startOffset;i++){ const el=document.createElement('div'); el.className='cal-cell empty'; grid.appendChild(el); }
-    let monthSolved = 0; const todayKey = todayStr();
+    let monthSolved = 0; let monthAllSolved = 0; const todayKey = todayStr();
     for(let day=1; day<=daysInMonth; day++){
       const dateStr = todayStr(new Date(calYear, calMonth, day));
       const entryStatus = dayEntryStatus(dateStr);
       if(entryStatus && entryStatus.status === 'solved') monthSolved++;
+      monthAllSolved += data.events.filter(e=>e.type==='solved' && e.date===dateStr).length;
       const el = document.createElement('div'); el.className='cal-cell';
       el.setAttribute('data-date', dateStr);
       let bg='var(--card)', textColor='var(--ink-soft)';
@@ -724,6 +787,7 @@
       grid.appendChild(el);
     }
     document.getElementById('calMonthTotal').textContent = monthSolved;
+    document.getElementById('calMonthAllTotal').textContent = monthAllSolved;
   }
   document.getElementById('calPrev').onclick = ()=>{ calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderCalendar(); };
   document.getElementById('calNext').onclick = ()=>{ calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderCalendar(); };
@@ -766,7 +830,6 @@
     if(cell) openDayDetail(cell.getAttribute('data-date'));
   });
   document.getElementById('dayModalClose').onclick = ()=>{ document.getElementById('dayModalBackdrop').classList.remove('open'); };
-  document.getElementById('dayModalBackdrop').addEventListener('click', e=>{ if(e.target.id==='dayModalBackdrop') e.currentTarget.classList.remove('open'); });
 
   // ---- Problems view ----
   function statusFor(problemId){
@@ -817,7 +880,6 @@
   document.getElementById('gridDaily').addEventListener('click', e=>{ const c=e.target.closest('.pgrid-cell'); if(c) openDetail(c.getAttribute('data-id')); });
   document.getElementById('gridPractice').addEventListener('click', e=>{ const c=e.target.closest('.pgrid-cell'); if(c) openDetail(c.getAttribute('data-id')); });
   document.getElementById('detailClose').onclick = ()=>{ document.getElementById('detailModalBackdrop').classList.remove('open'); detailProblemId=null; };
-  document.getElementById('detailModalBackdrop').addEventListener('click', e=>{ if(e.target.id==='detailModalBackdrop'){ e.currentTarget.classList.remove('open'); detailProblemId=null; } });
   document.getElementById('detailNote').onclick = ()=>{ if(detailProblemId) openNoteModal(detailProblemId); };
   document.getElementById('detailEdit').onclick = ()=>{ if(detailProblemId) openEditModal(detailProblemId); };
   document.getElementById('detailRemove').onclick = ()=>{
@@ -852,7 +914,6 @@
     document.getElementById('noteModalBackdrop').classList.add('open');
   }
   document.getElementById('noteCancel').onclick = ()=>{ document.getElementById('noteModalBackdrop').classList.remove('open'); noteProblemId=null; };
-  document.getElementById('noteModalBackdrop').addEventListener('click', e=>{ if(e.target.id==='noteModalBackdrop'){ e.currentTarget.classList.remove('open'); noteProblemId=null; } });
   document.getElementById('noteSave').onclick = async ()=>{
     if(!noteProblemId) return;
     const p = data.problems.find(x=>x.id===noteProblemId);
@@ -884,7 +945,6 @@
     editProblemId = null;
   }
   document.getElementById('cancelEdit').onclick = closeEditModal;
-  document.getElementById('editModalBackdrop').addEventListener('click', e=>{ if(e.target.id==='editModalBackdrop') closeEditModal(); });
   document.getElementById('saveEdit').onclick = async ()=>{
     if(!editProblemId) return;
     const p = data.problems.find(x=>x.id===editProblemId);
@@ -922,7 +982,6 @@
     document.getElementById('newProblem').value = '';
     document.getElementById('newDaily').checked = false;
   }
-  document.getElementById('addModalBackdrop').addEventListener('click', e=>{ if(e.target.id==='addModalBackdrop') closeAddModal(); });
   document.getElementById('saveProblem').onclick = async ()=>{
     const text = document.getElementById('newProblem').value.trim();
     if(!text) return;
@@ -942,7 +1001,6 @@
     e.stopPropagation();
     document.getElementById('settingsDropdown').classList.toggle('open');
   };
-  document.addEventListener('click', ()=>{ document.getElementById('settingsDropdown').classList.remove('open'); });
   document.getElementById('settingsDropdown').addEventListener('click', e=>e.stopPropagation());
   document.querySelectorAll('.swatch').forEach(s=>{
     s.onclick = ()=>{ data.theme = s.getAttribute('data-theme'); applyTheme(data.theme); saveData(); };
@@ -1092,8 +1150,9 @@
   }
 
   async function init(){
-    await loadData();
+    await loadLocalData();
     renderEverything();
+    await pullFromCloud();
   }
   init();
 })();
