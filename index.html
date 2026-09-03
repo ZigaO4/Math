@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Problems</title>
+<title>Math</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" href="icon.png">
@@ -373,8 +373,8 @@
   <div class="modal-backdrop" id="noteModalBackdrop">
     <div class="modal">
       <h3>Note</h3>
-      <p class="hint-text">Use $...$ or $$...$$ for LaTeX. This note appears whenever you open this problem.</p>
-      <textarea id="noteInput" placeholder="e.g. Try induction on $n$."></textarea>
+      <p class="hint-text">Use $...$ or $$...$$ for LaTeX.</p>
+      <textarea id="noteInput" placeholder="Progress or ideas on the problem"></textarea>
       <div class="row">
         <button class="btn" id="noteCancel">Cancel</button>
         <button class="btn primary" id="noteSave">Save note</button>
@@ -564,8 +564,7 @@
     document.getElementById('statsBar').innerHTML =
       `<span>Solved today: <strong>${solvedToday}</strong></span>` +
       `<span>Total solved: <strong>${totalSolved}</strong></span>` +
-      `<span>Practice pool: <strong>${activePool(practicePool()).length}</strong></span>` +
-      `<span>Daily pool: <strong>${activePool(dailyPool()).length}</strong></span>`;
+      `<span>Practice pool: <strong>${activePool(practicePool()).length}</strong></span>`;
   }
 
   function sourceHtml(p){
