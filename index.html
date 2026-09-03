@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="green" data-layout="desktop">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Problems</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<style>
+  :root{
+    --bg: #08090B;
+    --grid: rgba(255,255,255,0.035);
+    --ink: #ECEFF2;
+    --ink-soft: #9BA5B0;
+    --ink-faint: #676F79;
+    --card: #131619;
+    --border: rgba(255,255,255,0.11);
+    --primary: #2ECC71;
+    --primary-hover: #27AE60;
+    --solved: #3ECF8E;
+    --solved-bg: rgba(62,207,142,0.16);
+    --hint: #E8B84B;
+    --hint-bg: rgba(232,184,75,0.16);
+    --giveup: #FF6B6B;
+    --giveup-bg: rgba(255,107,107,0.15);
+    --danger: #FF6B6B;
+    --dot: #F1C40F;
+    --note: #4C8DFF;
+    --note-bg: rgba(76,141,255,0.16);
+  }
+  [data-theme="green"]{ --primary:#2ECC71; --primary-hover:#27AE60; }
+  [data-theme="blue"]{ --primary:#4C8DFF; --primary-hover:#3B72D6; }
+
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    background:
+      repeating-linear-gradient(0deg, var(--grid) 0px, var(--grid) 1px, transparent 1px, transparent 28px),
+      repeating-linear-gradient(90deg, var(--grid) 0px, var(--grid) 1px, transparent 1px, transparent 28px),
+      var(--bg);
+    min-height: 100vh;
+    display:flex;
+    justify-content:center;
+    padding: 32px 16px 60px;
+  }
+  html[data-layout="mobile"] body{ padding: 20px 14px calc(96px + env(safe-area-inset-bottom)); }
+  .app{ width:100%; max-width: 640px; }
+
+  header{ display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom: 18px; flex-wrap:wrap; }
+  header h1{
+    font-family:'Source Serif 4', Georgia, serif;
+    font-weight:600; font-size: 24px; margin:0; letter-spacing: -0.01em;
+  }
+  .header-right{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  nav.tabs{ display:flex; gap:18px; }
+  html[data-layout="mobile"] nav.tabs{ display:none; }
+  nav.tabs button{
+    background:none; border:none; cursor:pointer;
+    font-family:inherit; font-size:14px; font-weight:500;
+    color: var(--ink-soft); padding: 4px 0 8px; border-bottom: 2px solid transparent;
+  }
+  nav.tabs button.active{ color: var(--ink); border-bottom-color: var(--primary); }
+
+  .icon-buttons{ display:flex; gap:8px; position:relative; }
+  .icon-btn{
+    width:32px; height:32px; border-radius:4px; border:1px solid var(--border);
+    background: var(--card); color: var(--ink-soft); font-size:16px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .icon-btn:hover{ color: var(--ink); }
+  .icon-btn.accent{ background: var(--primary); color:#08090B; border-color:var(--primary); font-weight:700; }
+  html[data-layout="mobile"] #addBtn{
+    position:fixed; right:18px; bottom:calc(76px + env(safe-area-inset-bottom));
+    width:54px; height:54px; border-radius:50%; font-size:26px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.45); z-index:35;
+  }
+
+  .dropdown{
+    position:absolute; top:40px; right:0; background: var(--card); border:1px solid var(--border);
+    border-radius:6px; padding:14px; display:none; z-index:40; min-width:190px;
+  }
+  .dropdown.open{ display:block; }
+  .dropdown .label{ font-size:12px; color: var(--ink-faint); margin-bottom:10px; }
+  .dropdown-section{ margin-bottom:16px; }
+  .dropdown-section:last-child{ margin-bottom:0; }
+  .swatch-row{ display:flex; gap:10px; }
+  .swatch{ width:22px; height:22px; border-radius:50%; padding:0; cursor:pointer; border:1px solid var(--border); }
+  .swatch.active{ box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ink-soft); }
+  .layout-row{ display:flex; gap:6px; }
+  .layout-opt{
+    font-family:inherit; font-size:12px; padding:6px 9px; border-radius:4px; cursor:pointer;
+    border:1px solid var(--border); background: var(--bg); color: var(--ink-soft);
+  }
+  .layout-opt.active{ background: var(--primary); color:#08090B; border-color: var(--primary); font-weight:600; }
+
+  .stats-bar{
+    display:flex; gap:18px; font-size:13px; color:var(--ink-soft); flex-wrap:wrap;
+    margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid var(--border);
+  }
+  .stats-bar strong{ color:var(--ink); font-weight:600; }
+
+  .card{
+    background: var(--card); border: 1px solid var(--border); border-top: 3px solid var(--primary);
+    border-radius: 4px; padding: 30px 28px; min-height: 180px;
+    display:flex; flex-direction:column; justify-content:center;
+  }
+  html[data-layout="mobile"] .card{ padding: 24px 20px; }
+  .card .meta{ font-size:12px; color: var(--ink-faint); margin-bottom:10px; display:flex; justify-content:space-between; }
+  .source-line{ font-size:13px; color: var(--ink-soft); margin-bottom:14px; }
+  .source-line a{ color: var(--primary); text-decoration:none; }
+  .source-line a:hover{ text-decoration:underline; }
+  .problem-text{ font-family:'Source Serif 4', Georgia, serif; font-size:19px; line-height:1.65; white-space: pre-wrap; }
+  .empty-state{ text-align:center; color: var(--ink-soft); font-size:14px; padding: 20px 0; }
+  .empty-state p{ margin: 0 0 14px; }
+
+  .actions{ display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
+  button.btn{
+    font-family:inherit; font-size:14px; font-weight:500; padding: 10px 16px; border-radius: 4px; cursor:pointer;
+    border:1px solid var(--border); background: var(--card); color: var(--ink);
+  }
+  html[data-layout="mobile"] button.btn{ padding: 12px 14px; font-size:14px; flex: 1 1 auto; }
+  button.btn:hover{ filter: brightness(1.12); }
+  button.btn.primary{ background: var(--primary); color:#08090B; border-color: var(--primary); font-weight:600; }
+  button.btn.primary:hover{ background: var(--primary-hover); }
+  button.btn.solved{ background: var(--solved-bg); color: var(--solved); border-color: rgba(62,207,142,0.35); }
+  button.btn.hint{ background: var(--hint-bg); color: var(--hint); border-color: rgba(232,184,75,0.4); }
+  button.btn.giveup{ background: var(--giveup-bg); color: var(--giveup); border-color: rgba(255,107,107,0.4); }
+  button.btn.note{ background: var(--note-bg); color: var(--note); border-color: rgba(76,141,255,0.4); }
+  button.btn:disabled{ opacity:0.4; cursor:default; }
+  .actions .spacer{ flex:1; }
+  html[data-layout="mobile"] .actions .spacer{ display:none; }
+  html[data-layout="mobile"] .actions{ flex-direction:column; }
+
+  .toast{ font-size:13px; color: var(--ink-soft); margin-top:10px; height:16px; transition: opacity 0.4s; }
+  .solved-note{ font-size:13px; color:var(--solved); background:var(--solved-bg); border:1px solid rgba(62,207,142,0.35); border-radius:4px; padding:8px 12px; margin-bottom:14px; }
+  .hint-note{ font-size:12px; color:var(--hint); margin-top:10px; }
+  .note-box{ font-family:'Source Serif 4', Georgia, serif; font-size:14px; line-height:1.55; color:var(--note); background:var(--note-bg); border:1px solid rgba(76,141,255,0.35); border-radius:4px; padding:10px 12px; margin:14px 0 6px; white-space:pre-wrap; }
+
+  /* Calendar */
+  .cal-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .cal-header h2{ font-family:'Source Serif 4', Georgia, serif; font-size:19px; font-weight:600; margin:0; }
+  .cal-nav{ display:flex; gap:6px; }
+  .cal-nav button{ background:var(--card); border:1px solid var(--border); border-radius:4px; cursor:pointer; width:34px; height:34px; font-size:16px; color:var(--ink-soft); }
+  .cal-grid{ display:grid; grid-template-columns: repeat(7, 1fr); gap:6px; }
+  .cal-dow{ text-align:center; font-size:11px; color: var(--ink-faint); padding-bottom:4px; }
+  .cal-cell{ aspect-ratio: 1; border-radius:4px; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:13px; color: var(--ink-soft); background:var(--card); position:relative; cursor:pointer; }
+  .cal-cell.empty{ border:none; background:transparent; }
+  .cal-summary{ margin-top:18px; padding-top:14px; border-top:1px solid var(--border); font-size:13px; color: var(--ink-soft); text-align:center; }
+  .cal-summary strong{ color:var(--ink); }
+
+  /* Problems grid */
+  .pool-section{ margin-bottom: 26px; }
+  .pool-section h3{ font-family:'Source Serif 4', Georgia, serif; font-size:16px; font-weight:600; margin:0 0 12px; color: var(--ink-soft); }
+  .pgrid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap:8px; }
+  .pgrid-cell{
+    aspect-ratio:1; border-radius:4px; display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:600; cursor:pointer; position:relative;
+  }
+  .pgrid-cell.ok{ background: var(--solved); color:#08090B; }
+  .pgrid-cell.giveup{ background: var(--giveup); color:#08090B; }
+  .pgrid-cell.noted{ background: var(--note); color:#08090B; }
+  .pgrid-cell.pending{ background: var(--card); border:1px solid var(--border); color: var(--ink-soft); }
+  .hint-badge{ position:absolute; top:-4px; right:-4px; width:12px; height:12px; border-radius:50%; background: var(--dot); border:2px solid var(--bg); }
+  .pool-empty{ font-size:13px; color: var(--ink-faint); }
+
+  /* Modal */
+  .modal-backdrop{ position:fixed; inset:0; background: rgba(0,0,0,0.55); display:none; align-items:center; justify-content:center; z-index:50; padding:20px; }
+  .modal-backdrop.open{ display:flex; }
+  .modal{ background: var(--card); border:1px solid var(--border); border-radius:6px; padding:26px; width:100%; max-width:460px; max-height:85vh; overflow:auto; }
+  .modal h3{ margin:0 0 4px; font-family:'Source Serif 4', Georgia, serif; font-size:18px; }
+  .modal .modal-source{ font-size:13px; color: var(--ink-soft); margin-bottom:14px; }
+  .modal .modal-source a{ color: var(--primary); }
+  .modal .modal-text{ font-family:'Source Serif 4', Georgia, serif; font-size:17px; line-height:1.6; margin-bottom:20px; white-space:pre-wrap; }
+  .modal .row{ display:flex; gap:10px; justify-content:flex-end; }
+  .modal input, .modal textarea{
+    width:100%; font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; padding:11px 12px;
+    border:1px solid var(--border); border-radius:4px; background: var(--bg); color:var(--ink); margin-bottom:10px;
+  }
+  .modal textarea{ min-height:90px; resize:vertical; }
+  .modal .hint-text{ font-size:12px; color:var(--ink-faint); margin:0 0 12px; }
+  .checkbox-row{ display:flex; align-items:center; gap:8px; margin-bottom:16px; font-size:14px; color: var(--ink-soft); }
+  .checkbox-row input{ width:auto; margin:0; }
+
+  /* Bottom nav (mobile) */
+  .bottom-nav{
+    display:none; position:fixed; left:0; right:0; bottom:0; background: var(--card);
+    border-top:1px solid var(--border); justify-content:space-around; align-items:center;
+    padding: 8px 4px calc(8px + env(safe-area-inset-bottom)); z-index:30;
+  }
+  html[data-layout="mobile"] .bottom-nav{ display:flex; }
+  .bn-item{
+    background:none; border:none; display:flex; flex-direction:column; align-items:center; gap:3px;
+    color: var(--ink-faint); font-size:10.5px; font-family:inherit; padding:4px 10px; cursor:pointer;
+  }
+  .bn-item svg{ width:21px; height:21px; }
+  .bn-item.active{ color: var(--primary); }
+</style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Problems</h1>
+      <div class="header-right">
+        <nav class="tabs">
+          <button id="tab-practice" class="active">Practice</button>
+          <button id="tab-daily">Daily</button>
+          <button id="tab-calendar">Calendar</button>
+          <button id="tab-problems">Problems</button>
+        </nav>
+        <div class="icon-buttons">
+          <button class="icon-btn" id="settingsBtn" title="Settings">⚙</button>
+          <button class="icon-btn accent" id="addBtn" title="Add problem">+</button>
+          <div class="dropdown" id="settingsDropdown">
+            <div class="dropdown-section">
+              <div class="label">Theme</div>
+              <div class="swatch-row">
+                <button class="swatch" data-theme="green" style="background:#2ECC71;" title="Green"></button>
+                <button class="swatch" data-theme="blue" style="background:#4C8DFF;" title="Blue"></button>
+              </div>
+            </div>
+            <div class="dropdown-section">
+              <div class="label">Layout</div>
+              <div class="layout-row">
+                <button class="layout-opt" data-layout="auto">Auto</button>
+                <button class="layout-opt" data-layout="mobile">Mobile</button>
+                <button class="layout-opt" data-layout="desktop">Desktop</button>
+              </div>
+            </div>
+            <div class="dropdown-section">
+              <div class="label">Data</div>
+              <div class="layout-row">
+                <button class="layout-opt" id="exportBtn">Export</button>
+                <button class="layout-opt" id="importBtn">Import</button>
+              </div>
+              <input type="file" id="importFileInput" accept="application/json" style="display:none;">
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="stats-bar" id="statsBar"></div>
+
+    <div id="view-practice">
+      <div class="card" id="practiceCard"></div>
+      <div class="toast" id="practiceToast"></div>
+    </div>
+
+    <div id="view-daily" style="display:none;">
+      <div class="card" id="dailyCard"></div>
+      <div class="toast" id="dailyToast"></div>
+    </div>
+
+    <div id="view-calendar" style="display:none;">
+      <div class="cal-header">
+        <h2 id="calMonthLabel"></h2>
+        <div class="cal-nav">
+          <button id="calPrev">‹</button>
+          <button id="calNext">›</button>
+        </div>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="cal-summary">Daily problems solved this month: <strong id="calMonthTotal">0</strong></div>
+    </div>
+
+    <div id="view-problems" style="display:none;">
+      <div class="pool-section">
+        <h3>Daily pool</h3>
+        <div class="pgrid" id="gridDaily"></div>
+      </div>
+      <div class="pool-section">
+        <h3>Practice pool</h3>
+        <div class="pgrid" id="gridPractice"></div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav" id="bottomNav">
+    <button class="bn-item active" data-tab="practice">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/></svg>
+      <span>Practice</span>
+    </button>
+    <button class="bn-item" data-tab="daily">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+      <span>Daily</span>
+    </button>
+    <button class="bn-item" data-tab="calendar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+      <span>Calendar</span>
+    </button>
+    <button class="bn-item" data-tab="problems">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      <span>Problems</span>
+    </button>
+  </nav>
+
+  <div class="modal-backdrop" id="addModalBackdrop">
+    <div class="modal">
+      <h3>Add a problem</h3>
+      <p class="hint-text">Mix plain text with LaTeX: use $...$ for inline math and $$...$$ for a centered equation.</p>
+      <input type="text" id="newName" placeholder="Source">
+      <input type="url" id="newLink" placeholder="AoPS Link">
+      <textarea id="newProblem" placeholder="Problem Statement"></textarea>
+      <div class="checkbox-row">
+        <input type="checkbox" id="newDaily">
+        <label for="newDaily">Daily problem</label>
+      </div>
+      <div class="row">
+        <button class="btn" id="cancelProblem">Cancel</button>
+        <button class="btn primary" id="saveProblem">Add problem</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="detailModalBackdrop">
+    <div class="modal">
+      <h3>Problem</h3>
+      <div class="modal-source" id="detailSource"></div>
+      <div class="modal-text" id="detailText"></div>
+      <div class="note-box" id="detailNoteBox" style="display:none;"></div>
+      <div class="row">
+        <button class="btn note" id="detailNote" style="margin-right:auto;">Note</button>
+        <button class="btn" id="detailEdit">Edit</button>
+        <button class="btn" id="detailRemove" style="color:var(--giveup);">Remove</button>
+        <button class="btn primary" id="detailClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="editModalBackdrop">
+    <div class="modal">
+      <h3>Edit problem</h3>
+      <p class="hint-text">Mix plain text with LaTeX: use $...$ for inline math and $$...$$ for a centered equation.</p>
+      <input type="text" id="editName" placeholder="Source">
+      <input type="url" id="editLink" placeholder="AoPS Link">
+      <textarea id="editProblem" placeholder="Problem Statement"></textarea>
+      <div class="checkbox-row">
+        <input type="checkbox" id="editDaily">
+        <label for="editDaily">Daily problem</label>
+      </div>
+      <div class="row">
+        <button class="btn" id="cancelEdit">Cancel</button>
+        <button class="btn primary" id="saveEdit">Save changes</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="dayModalBackdrop">
+    <div class="modal">
+      <h3 id="dayModalTitle">Day</h3>
+      <div id="dayModalBody"></div>
+      <div class="row">
+        <button class="btn" id="dayModalClose">Close</button>
+        <button class="btn primary" id="dayModalSave" style="display:none;">Save note</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="noteModalBackdrop">
+    <div class="modal">
+      <h3>Note</h3>
+      <p class="hint-text">Use $...$ or $$...$$ for LaTeX. This note appears whenever you open this problem.</p>
+      <textarea id="noteInput" placeholder="e.g. Try induction on $n$."></textarea>
+      <div class="row">
+        <button class="btn" id="noteCancel">Cancel</button>
+        <button class="btn primary" id="noteSave">Save note</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="confirmModalBackdrop">
+    <div class="modal" style="max-width:380px;">
+      <h3 id="confirmModalTitle">Confirm</h3>
+      <p class="hint-text" id="confirmModalText"></p>
+      <div class="row">
+        <button class="btn" id="confirmModalCancel">Cancel</button>
+        <button class="btn primary" id="confirmModalOk">OK</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'mathpractice:data:v2';
+  let data = { problems: [], events: [], currentId: null, dailyCurrent: null, dailyHistory: {}, theme: 'green', layoutMode: 'auto' };
+  let calMonth = new Date().getMonth();
+  let calYear = new Date().getFullYear();
+  let saveInFlight = false;
+  let saveQueued = false;
+  let detailProblemId = null;
+
+  function todayStr(d){
+    d = d || new Date();
+    const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+  function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function escapeHtml(s){ return s.replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  const ACTION_MESSAGES = { solved:'Marked solved.', hint:'Hint noted for this problem.', giveup:'Marked as given up.' };
+
+  async function loadData(){
+    try{
+      const res = await window.storage.get(STORAGE_KEY, false);
+      if(res && res.value){
+        const parsed = JSON.parse(res.value);
+        data = Object.assign({ problems: [], events: [], currentId: null, dailyCurrent: null, dailyHistory: {}, theme: 'green', layoutMode: 'auto' }, parsed);
+      }
+    }catch(e){ /* no data yet */ }
+    if(data.theme === 'purple') data.theme = 'green';
+    applyTheme(data.theme || 'green');
+    applyLayout();
+    ensurePracticeCurrent();
+    ensureDailyForToday();
+  }
+
+  async function attemptSave(retries){
+    retries = retries === undefined ? 2 : retries;
+    try{
+      const result = await window.storage.set(STORAGE_KEY, JSON.stringify(data), false);
+      if(!result) throw new Error('empty result from storage.set');
+    }catch(e){
+      if(retries > 0){ await new Promise(r=>setTimeout(r, 700)); return attemptSave(retries - 1); }
+      console.error('Storage save failed after retries', e);
+      setTimeout(()=>saveData(), 4000);
+    }
+  }
+  async function saveData(){
+    if(saveInFlight){ saveQueued = true; return; }
+    saveInFlight = true;
+    await attemptSave();
+    saveInFlight = false;
+    if(saveQueued){ saveQueued = false; saveData(); }
+  }
+
+  function applyTheme(theme){
+    document.documentElement.setAttribute('data-theme', theme);
+    document.querySelectorAll('.swatch').forEach(s=>{
+      s.classList.toggle('active', s.getAttribute('data-theme') === theme);
+    });
+  }
+
+  function computeLayout(){
+    const mode = data.layoutMode || 'auto';
+    if(mode === 'mobile' || mode === 'desktop') return mode;
+    return window.innerWidth <= 700 ? 'mobile' : 'desktop';
+  }
+  function applyLayout(){
+    document.documentElement.setAttribute('data-layout', computeLayout());
+    document.querySelectorAll('.layout-opt').forEach(b=>{
+      b.classList.toggle('active', b.getAttribute('data-layout') === (data.layoutMode || 'auto'));
+    });
+  }
+  window.addEventListener('resize', ()=>{ if((data.layoutMode||'auto') === 'auto') applyLayout(); });
+
+  function renderMath(container){
+    if(window.renderMathInElement){
+      renderMathInElement(container, {
+        delimiters: [
+          {left:'$$', right:'$$', display:true},
+          {left:'\\[', right:'\\]', display:true},
+          {left:'$', right:'$', display:false},
+          {left:'\\(', right:'\\)', display:false}
+        ],
+        throwOnError:false
+      });
+    }
+  }
+
+  function practicePool(){ return data.problems.filter(p=>!p.daily); }
+  function dailyPool(){ return data.problems.filter(p=>p.daily); }
+  function isSolved(id){ return data.events.some(e=>e.problemId===id && e.type==='solved'); }
+  function activePool(pool){ return pool.filter(p=>!isSolved(p.id)); }
+
+  function ensurePracticeCurrent(){
+    const pool = activePool(practicePool());
+    if(!data.currentId || !pool.find(p=>p.id===data.currentId)){
+      data.currentId = pool.length ? pool[Math.floor(Math.random()*pool.length)].id : null;
+    }
+  }
+  function pickNextPractice(){
+    const pool = activePool(practicePool());
+    if(pool.length === 0){ data.currentId = null; return; }
+    if(pool.length === 1){ data.currentId = pool[0].id; return; }
+    let next;
+    do{ next = pool[Math.floor(Math.random()*pool.length)]; }while(next.id === data.currentId);
+    data.currentId = next.id;
+  }
+  function ensureDailyForToday(){
+    const today = todayStr();
+    data.dailyHistory = data.dailyHistory || {};
+    const existing = data.dailyHistory[today];
+    if(existing && data.problems.find(p=>p.id===existing.problemId)){
+      data.dailyCurrent = { id: existing.problemId, date: today };
+      return;
+    }
+    const pool = activePool(dailyPool());
+    if(pool.length === 0){ data.dailyCurrent = null; if(existing) delete data.dailyHistory[today]; return; }
+    const pick = pool[Math.floor(Math.random()*pool.length)];
+    data.dailyCurrent = { id: pick.id, date: today };
+    data.dailyHistory[today] = { problemId: pick.id, note: '' };
+  }
+
+  function recordEvent(problemId, type){
+    const today = todayStr();
+    data.events.push({ id: genId(), problemId, type, date: today, ts: Date.now() });
+    if(type === 'giveup'){
+      const p = data.problems.find(x=>x.id===problemId);
+      if(p && p.daily){
+        p.daily = false;
+        if(data.dailyCurrent && data.dailyCurrent.id === problemId) data.dailyCurrent = null;
+        data.dailyHistory = data.dailyHistory || {};
+        if(data.dailyHistory[today] && data.dailyHistory[today].problemId === problemId){
+          delete data.dailyHistory[today];
+        }
+      }
+    }
+  }
+
+  function showToast(elId, msg){
+    const t = document.getElementById(elId);
+    t.textContent = msg; t.style.opacity = '1';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(()=>{ t.style.opacity = '0'; }, 1800);
+  }
+
+  function showModalMessage(title, message, opts){
+    opts = opts || {};
+    document.getElementById('confirmModalTitle').textContent = title;
+    document.getElementById('confirmModalText').textContent = message;
+    const okBtn = document.getElementById('confirmModalOk');
+    const cancelBtn = document.getElementById('confirmModalCancel');
+    okBtn.textContent = opts.okLabel || 'OK';
+    if(opts.danger){
+      okBtn.style.background = 'var(--giveup-bg)'; okBtn.style.color = 'var(--giveup)'; okBtn.style.borderColor = 'rgba(255,107,107,0.4)';
+    } else {
+      okBtn.style.background = ''; okBtn.style.color = ''; okBtn.style.borderColor = '';
+    }
+    cancelBtn.style.display = opts.showCancel === false ? 'none' : 'inline-block';
+    document.getElementById('confirmModalBackdrop').classList.add('open');
+    function cleanup(){ document.getElementById('confirmModalBackdrop').classList.remove('open'); okBtn.onclick = null; cancelBtn.onclick = null; }
+    okBtn.onclick = ()=>{ cleanup(); if(opts.onOk) opts.onOk(); };
+    cancelBtn.onclick = ()=>{ cleanup(); if(opts.onCancel) opts.onCancel(); };
+  }
+  document.getElementById('confirmModalBackdrop').addEventListener('click', e=>{ if(e.target.id==='confirmModalBackdrop'){ e.currentTarget.classList.remove('open'); } });
+
+  function renderStats(){
+    const today = todayStr();
+    const solvedToday = data.events.filter(e=>e.type==='solved' && e.date===today).length;
+    const totalSolved = data.events.filter(e=>e.type==='solved').length;
+    document.getElementById('statsBar').innerHTML =
+      `<span>Solved today: <strong>${solvedToday}</strong></span>` +
+      `<span>Total solved: <strong>${totalSolved}</strong></span>` +
+      `<span>Practice pool: <strong>${activePool(practicePool()).length}</strong></span>` +
+      `<span>Daily pool: <strong>${activePool(dailyPool()).length}</strong></span>`;
+  }
+
+  function sourceHtml(p){
+    if(!p.name && !p.link) return '';
+    const label = p.name ? escapeHtml(p.name) : p.link;
+    return p.link
+      ? `<div class="source-line"><a href="${escapeHtml(p.link)}" target="_blank" rel="noopener noreferrer">${label} ↗</a></div>`
+      : `<div class="source-line">${label}</div>`;
+  }
+
+  // ---- Practice view ----
+  function renderPracticeCard(){
+    const card = document.getElementById('practiceCard');
+    const fullPool = practicePool();
+    const active = activePool(fullPool);
+    const p = data.problems.find(x=>x.id===data.currentId && !x.daily);
+    if(!p){
+      card.innerHTML = fullPool.length
+        ? `<div class="empty-state"><p>All practice problems solved 🎉</p><p>Add more problems to keep going.</p></div>`
+        : `<div class="empty-state"><p>No practice problems yet.</p><p>Use the + button to add one.</p></div>`;
+      return;
+    }
+    const idx = fullPool.findIndex(x=>x.id===p.id) + 1;
+    const st = statusFor(p.id);
+    card.innerHTML = `
+      <div class="meta"><span>Problem ${idx} of ${fullPool.length}</span></div>
+      ${sourceHtml(p)}
+      <div class="problem-text" id="practiceText"></div>
+      ${st.hint ? `<div class="hint-note">Hint taken for this problem</div>` : ''}
+      ${p.note && p.note.trim() ? `<div class="note-box" id="practiceNoteBox"></div>` : ''}
+      <div class="actions">
+        <button class="btn solved" id="pSolved">Solved</button>
+        <button class="btn note" id="pNote">Note</button>
+        <button class="btn hint" id="pHint" ${st.hint?'disabled':''}>Hint</button>
+        <button class="btn giveup" id="pGiveup">Give up</button>
+        <span class="spacer"></span>
+        <button class="btn primary" id="pNext" ${active.length<2?'disabled':''}>Next</button>
+      </div>
+    `;
+    document.getElementById('practiceText').textContent = p.text;
+    renderMath(document.getElementById('practiceText'));
+    if(p.note && p.note.trim()){
+      const nb = document.getElementById('practiceNoteBox');
+      nb.textContent = p.note;
+      renderMath(nb);
+    }
+    document.getElementById('pSolved').onclick = ()=>practiceAction('solved');
+    document.getElementById('pHint').onclick = ()=>practiceAction('hint');
+    document.getElementById('pNote').onclick = ()=>openNoteModal(p.id);
+    document.getElementById('pGiveup').onclick = ()=>practiceAction('giveup');
+    document.getElementById('pNext').onclick = ()=>{ pickNextPractice(); saveData(); renderPracticeCard(); };
+  }
+  function practiceAction(type){
+    const p = data.problems.find(x=>x.id===data.currentId);
+    if(!p) return;
+    recordEvent(p.id, type);
+    if(type !== 'hint') pickNextPractice();
+    saveData();
+    renderPracticeCard(); renderStats();
+    showToast('practiceToast', ACTION_MESSAGES[type]);
+  }
+
+  // ---- Daily view ----
+  function renderDailyCard(){
+    ensureDailyForToday();
+    const card = document.getElementById('dailyCard');
+    if(!data.dailyCurrent){
+      const fullPool = dailyPool();
+      card.innerHTML = fullPool.length
+        ? `<div class="empty-state"><p>All daily problems solved 🎉</p><p>Add more problems to the daily pool.</p></div>`
+        : `<div class="empty-state"><p>No daily problem today.</p><p>Add a problem and check "Add to daily pool".</p></div>`;
+      return;
+    }
+    const p = data.problems.find(x=>x.id===data.dailyCurrent.id);
+    if(!p){ data.dailyCurrent = null; ensureDailyForToday(); return renderDailyCard(); }
+    const st = statusFor(p.id);
+    card.innerHTML = `
+      <div class="meta"><span>Today's problem</span></div>
+      ${st.solved ? `<div class="solved-note">✓ Solved — nice work!</div>` : ''}
+      ${sourceHtml(p)}
+      <div class="problem-text" id="dailyText"></div>
+      ${p.note && p.note.trim() ? `<div class="note-box" id="dailyNoteBox"></div>` : ''}
+      <div class="actions">
+        <button class="btn solved" id="dSolved" ${st.solved?'disabled':''}>Solved</button>
+        <button class="btn note" id="dNote">Note</button>
+        <button class="btn hint" id="dHint" ${st.solved||st.hint?'disabled':''}>Hint</button>
+        <button class="btn giveup" id="dGiveup" ${st.solved?'disabled':''}>Give up</button>
+      </div>
+    `;
+    document.getElementById('dailyText').textContent = p.text;
+    renderMath(document.getElementById('dailyText'));
+    if(p.note && p.note.trim()){
+      const nb = document.getElementById('dailyNoteBox');
+      nb.textContent = p.note;
+      renderMath(nb);
+    }
+    document.getElementById('dSolved').onclick = ()=>dailyAction('solved');
+    document.getElementById('dHint').onclick = ()=>dailyAction('hint');
+    document.getElementById('dNote').onclick = ()=>openNoteModal(p.id);
+    document.getElementById('dGiveup').onclick = ()=>dailyAction('giveup');
+  }
+  function dailyAction(type){
+    const id = data.dailyCurrent && data.dailyCurrent.id;
+    if(!id) return;
+    recordEvent(id, type);
+    if(type === 'giveup') ensureDailyForToday();
+    saveData();
+    renderDailyCard(); renderStats(); renderProblemsView();
+    showToast('dailyToast', type === 'giveup' ? 'Moved to your practice pool.' : ACTION_MESSAGES[type]);
+  }
+
+  // ---- Calendar view ----
+  function dayEntryStatus(dateStr){
+    const entry = data.dailyHistory && data.dailyHistory[dateStr];
+    if(!entry || !entry.problemId) return null;
+    const solved = data.events.some(e=>e.problemId===entry.problemId && e.type==='solved' && e.date===dateStr);
+    const giveup = data.events.some(e=>e.problemId===entry.problemId && e.type==='giveup' && e.date===dateStr);
+    const hint = data.events.some(e=>e.problemId===entry.problemId && e.type==='hint' && e.date===dateStr);
+    const p = data.problems.find(x=>x.id===entry.problemId);
+    const hasNote = !!(p && p.note && p.note.trim());
+    let status = 'pending';
+    if(solved) status = 'solved';
+    else if(giveup) status = 'giveup';
+    else if(hasNote) status = 'noted';
+    return { status, hint };
+  }
+  function renderCalendar(){
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    document.getElementById('calMonthLabel').textContent = `${monthNames[calMonth]} ${calYear}`;
+    const grid = document.getElementById('calGrid');
+    grid.innerHTML = '';
+    ['Mo','Tu','We','Th','Fr','Sa','Su'].forEach(d=>{
+      const el = document.createElement('div'); el.className='cal-dow'; el.textContent=d; grid.appendChild(el);
+    });
+    const firstDay = new Date(calYear, calMonth, 1);
+    let startOffset = firstDay.getDay() - 1; if(startOffset < 0) startOffset = 6;
+    const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+    for(let i=0;i<startOffset;i++){ const el=document.createElement('div'); el.className='cal-cell empty'; grid.appendChild(el); }
+    let monthSolved = 0; const todayKey = todayStr();
+    for(let day=1; day<=daysInMonth; day++){
+      const dateStr = todayStr(new Date(calYear, calMonth, day));
+      const entryStatus = dayEntryStatus(dateStr);
+      if(entryStatus && entryStatus.status === 'solved') monthSolved++;
+      const el = document.createElement('div'); el.className='cal-cell';
+      el.setAttribute('data-date', dateStr);
+      let bg='var(--card)', textColor='var(--ink-soft)';
+      if(entryStatus){
+        if(entryStatus.status==='solved'){ bg='var(--solved)'; textColor='#08090B'; }
+        else if(entryStatus.status==='giveup'){ bg='var(--giveup)'; textColor='#08090B'; }
+        else if(entryStatus.status==='noted'){ bg='var(--note)'; textColor='#08090B'; }
+      }
+      el.style.background=bg; el.style.color=textColor;
+      if(dateStr===todayKey) el.style.borderColor='var(--primary)';
+      const hintTaken = entryStatus && entryStatus.hint;
+      el.title = !entryStatus ? 'No daily problem assigned' : (entryStatus.status==='solved' ? 'Solved' : entryStatus.status==='giveup' ? 'Given up' : 'Not solved yet') + (hintTaken ? ' · hint taken' : '');
+      el.innerHTML = `${day}${hintTaken ? '<span class="hint-badge"></span>' : ''}`;
+      grid.appendChild(el);
+    }
+    document.getElementById('calMonthTotal').textContent = monthSolved;
+  }
+  document.getElementById('calPrev').onclick = ()=>{ calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderCalendar(); };
+  document.getElementById('calNext').onclick = ()=>{ calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderCalendar(); };
+
+  function openDayDetail(dateStr){
+    data.dailyHistory = data.dailyHistory || {};
+    const entry = data.dailyHistory[dateStr];
+    const title = document.getElementById('dayModalTitle');
+    const body = document.getElementById('dayModalBody');
+    const saveBtn = document.getElementById('dayModalSave');
+    title.textContent = dateStr;
+    if(!entry){
+      body.innerHTML = `<p class="hint-text">No daily problem was assigned this day.</p>`;
+      saveBtn.style.display = 'none';
+      document.getElementById('dayModalBackdrop').classList.add('open');
+      return;
+    }
+    const p = data.problems.find(x=>x.id===entry.problemId);
+    const solved = data.events.some(e=>e.problemId===entry.problemId && e.type==='solved' && e.date===dateStr);
+    const hint = data.events.some(e=>e.problemId===entry.problemId && e.type==='hint' && e.date===dateStr);
+    body.innerHTML = `
+      ${p ? sourceHtml(p) : ''}
+      <div class="modal-text">${p ? escapeHtml(p.text) : '(problem removed)'}</div>
+      <p class="hint-text">${solved ? '✓ Solved' : 'Not solved yet'}${hint ? ' · Hint taken' : ''}</p>
+      <label style="font-size:12px;color:var(--ink-faint);display:block;margin-bottom:6px;">Progress note</label>
+      <textarea id="dayNoteInput" placeholder="Add a note about your progress...">${escapeHtml(entry.note || '')}</textarea>
+    `;
+    const textEl = body.querySelector('.modal-text');
+    if(textEl) renderMath(textEl);
+    saveBtn.style.display = 'inline-block';
+    saveBtn.onclick = async ()=>{
+      entry.note = document.getElementById('dayNoteInput').value;
+      await saveData();
+      document.getElementById('dayModalBackdrop').classList.remove('open');
+    };
+    document.getElementById('dayModalBackdrop').classList.add('open');
+  }
+  document.getElementById('calGrid').addEventListener('click', e=>{
+    const cell = e.target.closest('.cal-cell:not(.empty)');
+    if(cell) openDayDetail(cell.getAttribute('data-date'));
+  });
+  document.getElementById('dayModalClose').onclick = ()=>{ document.getElementById('dayModalBackdrop').classList.remove('open'); };
+  document.getElementById('dayModalBackdrop').addEventListener('click', e=>{ if(e.target.id==='dayModalBackdrop') e.currentTarget.classList.remove('open'); });
+
+  // ---- Problems view ----
+  function statusFor(problemId){
+    const solved = data.events.some(e=>e.problemId===problemId && e.type==='solved');
+    const hint = data.events.some(e=>e.problemId===problemId && e.type==='hint');
+    const giveup = data.events.some(e=>e.problemId===problemId && e.type==='giveup');
+    const p = data.problems.find(x=>x.id===problemId);
+    const hasNote = !!(p && p.note && p.note.trim());
+    return { solved, hint, giveup, hasNote };
+  }
+  function buildGrid(pool){
+    if(pool.length === 0) return '';
+    return pool.map((p,i)=>{
+      const st = statusFor(p.id);
+      let cls = 'pending';
+      if(st.solved) cls = 'ok';
+      else if(st.giveup) cls = 'giveup';
+      else if(st.hasNote) cls = 'noted';
+      return `<div class="pgrid-cell ${cls}" data-id="${p.id}" title="${escapeHtml(p.name || p.text.slice(0,50))}">${i+1}${st.hint ? '<span class="hint-badge"></span>' : ''}</div>`;
+    }).join('');
+  }
+  function renderProblemsView(){
+    const gd = document.getElementById('gridDaily');
+    const gp = document.getElementById('gridPractice');
+    const dp = dailyPool(), pp = practicePool();
+    gd.innerHTML = dp.length ? buildGrid(dp) : '<div class="pool-empty">No daily problems yet.</div>';
+    gp.innerHTML = pp.length ? buildGrid(pp) : '<div class="pool-empty">No practice problems yet.</div>';
+  }
+  function openDetail(id){
+    const p = data.problems.find(x=>x.id===id);
+    if(!p) return;
+    detailProblemId = id;
+    document.getElementById('detailSource').innerHTML = sourceHtml(p) || '';
+    const textEl = document.getElementById('detailText');
+    textEl.textContent = p.text;
+    renderMath(textEl);
+    const noteBox = document.getElementById('detailNoteBox');
+    if(p.note && p.note.trim()){
+      noteBox.style.display = 'block';
+      noteBox.textContent = p.note;
+      renderMath(noteBox);
+    } else {
+      noteBox.style.display = 'none';
+      noteBox.textContent = '';
+    }
+    document.getElementById('detailModalBackdrop').classList.add('open');
+  }
+  document.getElementById('gridDaily').addEventListener('click', e=>{ const c=e.target.closest('.pgrid-cell'); if(c) openDetail(c.getAttribute('data-id')); });
+  document.getElementById('gridPractice').addEventListener('click', e=>{ const c=e.target.closest('.pgrid-cell'); if(c) openDetail(c.getAttribute('data-id')); });
+  document.getElementById('detailClose').onclick = ()=>{ document.getElementById('detailModalBackdrop').classList.remove('open'); detailProblemId=null; };
+  document.getElementById('detailModalBackdrop').addEventListener('click', e=>{ if(e.target.id==='detailModalBackdrop'){ e.currentTarget.classList.remove('open'); detailProblemId=null; } });
+  document.getElementById('detailNote').onclick = ()=>{ if(detailProblemId) openNoteModal(detailProblemId); };
+  document.getElementById('detailEdit').onclick = ()=>{ if(detailProblemId) openEditModal(detailProblemId); };
+  document.getElementById('detailRemove').onclick = ()=>{
+    if(!detailProblemId) return;
+    const id = detailProblemId;
+    showModalMessage('Remove problem?', 'This will permanently delete the problem and its history. This cannot be undone.', {
+      okLabel: 'Remove', danger: true, showCancel: true,
+      onOk: async ()=>{
+        data.problems = data.problems.filter(p=>p.id!==id);
+        data.events = data.events.filter(e=>e.problemId!==id);
+        if(data.dailyHistory){
+          Object.keys(data.dailyHistory).forEach(date=>{
+            if(data.dailyHistory[date] && data.dailyHistory[date].problemId===id) delete data.dailyHistory[date];
+          });
+        }
+        if(data.currentId === id) ensurePracticeCurrent();
+        if(data.dailyCurrent && data.dailyCurrent.id === id) ensureDailyForToday();
+        document.getElementById('detailModalBackdrop').classList.remove('open');
+        detailProblemId = null;
+        await saveData();
+        renderEverything();
+      }
+    });
+  };
+
+  // ---- Note modal ----
+  let noteProblemId = null;
+  function openNoteModal(problemId){
+    noteProblemId = problemId;
+    const p = data.problems.find(x=>x.id===problemId);
+    document.getElementById('noteInput').value = (p && p.note) || '';
+    document.getElementById('noteModalBackdrop').classList.add('open');
+  }
+  document.getElementById('noteCancel').onclick = ()=>{ document.getElementById('noteModalBackdrop').classList.remove('open'); noteProblemId=null; };
+  document.getElementById('noteModalBackdrop').addEventListener('click', e=>{ if(e.target.id==='noteModalBackdrop'){ e.currentTarget.classList.remove('open'); noteProblemId=null; } });
+  document.getElementById('noteSave').onclick = async ()=>{
+    if(!noteProblemId) return;
+    const p = data.problems.find(x=>x.id===noteProblemId);
+    if(p) p.note = document.getElementById('noteInput').value.trim();
+    const savedId = noteProblemId;
+    document.getElementById('noteModalBackdrop').classList.remove('open');
+    noteProblemId = null;
+    await saveData();
+    renderPracticeCard(); renderDailyCard(); renderProblemsView();
+    if(document.getElementById('detailModalBackdrop').classList.contains('open') && detailProblemId === savedId){
+      openDetail(savedId);
+    }
+  };
+
+  // ---- Edit problem modal ----
+  let editProblemId = null;
+  function openEditModal(id){
+    const p = data.problems.find(x=>x.id===id);
+    if(!p) return;
+    editProblemId = id;
+    document.getElementById('editName').value = p.name || '';
+    document.getElementById('editLink').value = p.link || '';
+    document.getElementById('editProblem').value = p.text || '';
+    document.getElementById('editDaily').checked = !!p.daily;
+    document.getElementById('editModalBackdrop').classList.add('open');
+  }
+  function closeEditModal(){
+    document.getElementById('editModalBackdrop').classList.remove('open');
+    editProblemId = null;
+  }
+  document.getElementById('cancelEdit').onclick = closeEditModal;
+  document.getElementById('editModalBackdrop').addEventListener('click', e=>{ if(e.target.id==='editModalBackdrop') closeEditModal(); });
+  document.getElementById('saveEdit').onclick = async ()=>{
+    if(!editProblemId) return;
+    const p = data.problems.find(x=>x.id===editProblemId);
+    if(!p) return;
+    const text = document.getElementById('editProblem').value.trim();
+    if(!text) return;
+    p.name = document.getElementById('editName').value.trim();
+    p.link = document.getElementById('editLink').value.trim();
+    p.text = text;
+    const wasDaily = p.daily;
+    p.daily = document.getElementById('editDaily').checked;
+    if(wasDaily && !p.daily && data.dailyCurrent && data.dailyCurrent.id === p.id) data.dailyCurrent = null;
+    if(!wasDaily && p.daily && data.currentId === p.id) data.currentId = null;
+    const savedId = p.id;
+    closeEditModal();
+    ensurePracticeCurrent();
+    ensureDailyForToday();
+    await saveData();
+    renderEverything();
+    if(document.getElementById('detailModalBackdrop').classList.contains('open') && detailProblemId === savedId){
+      openDetail(savedId);
+    }
+  };
+
+  // ---- Add problem modal ----
+  document.getElementById('addBtn').onclick = ()=>{
+    document.getElementById('addModalBackdrop').classList.add('open');
+    document.getElementById('newName').focus();
+  };
+  document.getElementById('cancelProblem').onclick = closeAddModal;
+  function closeAddModal(){
+    document.getElementById('addModalBackdrop').classList.remove('open');
+    document.getElementById('newName').value = '';
+    document.getElementById('newLink').value = '';
+    document.getElementById('newProblem').value = '';
+    document.getElementById('newDaily').checked = false;
+  }
+  document.getElementById('addModalBackdrop').addEventListener('click', e=>{ if(e.target.id==='addModalBackdrop') closeAddModal(); });
+  document.getElementById('saveProblem').onclick = async ()=>{
+    const text = document.getElementById('newProblem').value.trim();
+    if(!text) return;
+    const name = document.getElementById('newName').value.trim();
+    const link = document.getElementById('newLink').value.trim();
+    const daily = document.getElementById('newDaily').checked;
+    const p = { id: genId(), name, link, text, daily, createdAt: Date.now() };
+    data.problems.push(p);
+    if(daily) ensureDailyForToday(); else if(!data.currentId) data.currentId = p.id;
+    closeAddModal();
+    await saveData();
+    renderEverything();
+  };
+
+  // ---- Settings dropdown ----
+  document.getElementById('settingsBtn').onclick = (e)=>{
+    e.stopPropagation();
+    document.getElementById('settingsDropdown').classList.toggle('open');
+  };
+  document.addEventListener('click', ()=>{ document.getElementById('settingsDropdown').classList.remove('open'); });
+  document.getElementById('settingsDropdown').addEventListener('click', e=>e.stopPropagation());
+  document.querySelectorAll('.swatch').forEach(s=>{
+    s.onclick = ()=>{ data.theme = s.getAttribute('data-theme'); applyTheme(data.theme); saveData(); };
+  });
+  document.querySelectorAll('.layout-opt[data-layout]').forEach(b=>{
+    b.onclick = ()=>{ data.layoutMode = b.getAttribute('data-layout'); applyLayout(); saveData(); };
+  });
+
+  // ---- Export / Import ----
+  function buildExportData(){
+    const problems = data.problems.map(p=>{
+      const st = statusFor(p.id);
+      return {
+        id: p.id,
+        name: p.name || '',
+        link: p.link || '',
+        text: p.text,
+        note: p.note || '',
+        pool: p.daily ? 'daily' : 'practice',
+        status: st.solved ? 'solved' : (st.giveup ? 'given_up' : 'unsolved'),
+        hintTaken: !!st.hint,
+        createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : null
+      };
+    });
+    const dailyCalendar = Object.keys(data.dailyHistory || {}).sort().map(date=>{
+      const e = data.dailyHistory[date] || {};
+      return { date, problemId: e.problemId || null, note: e.note || '' };
+    });
+    const history = data.events.slice().sort((a,b)=>a.ts-b.ts).map(e=>({
+      date: e.date, action: e.type, problemId: e.problemId, timestamp: new Date(e.ts).toISOString()
+    }));
+    return {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      settings: { theme: data.theme || 'green', layout: data.layoutMode || 'auto' },
+      problems,
+      dailyCalendar,
+      history
+    };
+  }
+  function applyImportedData(parsed){
+    const problems = Array.isArray(parsed.problems) ? parsed.problems : [];
+    const newProblems = problems.map(p=>({
+      id: p.id || genId(),
+      name: p.name || '',
+      link: p.link || '',
+      text: p.text || '',
+      note: p.note || '',
+      daily: p.pool === 'daily',
+      createdAt: p.createdAt ? (Date.parse(p.createdAt) || Date.now()) : Date.now()
+    }));
+    const events = [];
+    (parsed.history || []).forEach(h=>{
+      if(!h.problemId || !h.action) return;
+      events.push({
+        id: genId(),
+        problemId: h.problemId,
+        type: h.action,
+        date: h.date || todayStr(),
+        ts: h.timestamp ? (Date.parse(h.timestamp) || Date.now()) : Date.now()
+      });
+    });
+    const dailyHistory = {};
+    (parsed.dailyCalendar || []).forEach(d=>{
+      if(!d.date) return;
+      dailyHistory[d.date] = { problemId: d.problemId || null, note: d.note || '' };
+    });
+    data.problems = newProblems;
+    data.events = events;
+    data.dailyHistory = dailyHistory;
+    let theme = (parsed.settings && parsed.settings.theme) || data.theme || 'green';
+    if(theme === 'purple') theme = 'green';
+    data.theme = theme;
+    data.layoutMode = (parsed.settings && parsed.settings.layout) || data.layoutMode || 'auto';
+    data.currentId = null;
+    data.dailyCurrent = null;
+    applyTheme(data.theme);
+    applyLayout();
+    ensurePracticeCurrent();
+    ensureDailyForToday();
+  }
+  document.getElementById('exportBtn').onclick = ()=>{
+    const exportObj = buildExportData();
+    const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `problems-export-${todayStr()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  };
+  document.getElementById('importBtn').onclick = ()=>{
+    document.getElementById('importFileInput').click();
+  };
+  document.getElementById('importFileInput').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    e.target.value = '';
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      let parsed;
+      try{ parsed = JSON.parse(reader.result); }
+      catch(err){
+        showModalMessage('Import failed', 'That file could not be read as valid export data.', { showCancel: false });
+        return;
+      }
+      if(!parsed || !Array.isArray(parsed.problems)){
+        showModalMessage('Import failed', 'That file does not look like a problems export.', { showCancel: false });
+        return;
+      }
+      showModalMessage('Import data?', 'This will replace all problems, notes, and history currently stored on this device. This cannot be undone.', {
+        okLabel: 'Import', showCancel: true, danger: true,
+        onOk: async ()=>{
+          applyImportedData(parsed);
+          await saveData();
+          renderEverything();
+        }
+      });
+    };
+    reader.readAsText(file);
+  });
+
+  // ---- Tabs ----
+  const tabs = ['practice','daily','calendar','problems'];
+  function switchTab(tab){
+    tabs.forEach(t=>{
+      document.getElementById('tab-'+t).classList.toggle('active', t===tab);
+      document.getElementById('view-'+t).style.display = t===tab ? 'block' : 'none';
+    });
+    document.querySelectorAll('.bn-item').forEach(b=>{
+      b.classList.toggle('active', b.getAttribute('data-tab') === tab);
+    });
+    if(tab==='calendar') renderCalendar();
+    if(tab==='problems') renderProblemsView();
+    if(tab==='daily') renderDailyCard();
+    if(tab==='practice') renderPracticeCard();
+  }
+  tabs.forEach(t=> document.getElementById('tab-'+t).onclick = ()=>switchTab(t));
+  document.querySelectorAll('.bn-item').forEach(b=>{
+    b.onclick = ()=>switchTab(b.getAttribute('data-tab'));
+  });
+
+  function renderEverything(){
+    renderStats();
+    renderPracticeCard();
+    renderDailyCard();
+    renderProblemsView();
+  }
+
+  async function init(){
+    await loadData();
+    renderEverything();
+  }
+  init();
+})();
+</script>
+</body>
+</html>
