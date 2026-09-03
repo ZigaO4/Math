@@ -1,0 +1,13 @@
+{
+  "name": "Math",
+  "short_name": "Math",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#08090B",
+  "theme_color": "#08090B",
+  "icons": [
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
