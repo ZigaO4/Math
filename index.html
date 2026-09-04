@@ -40,6 +40,8 @@
     --dot: #F1C40F;
     --note: #4C8DFF;
     --note-bg: rgba(76,141,255,0.16);
+    --extend: #A78BFA;
+    --extend-bg: rgba(167,139,250,0.16);
   }
   [data-theme="green"]{ --primary:#2ECC71; --primary-hover:#27AE60; }
   [data-theme="blue"]{ --primary:#4C8DFF; --primary-hover:#3B72D6; }
@@ -146,6 +148,7 @@
   button.btn.hint{ background: var(--hint-bg); color: var(--hint); border-color: rgba(232,184,75,0.4); }
   button.btn.giveup{ background: var(--giveup-bg); color: var(--giveup); border-color: rgba(255,107,107,0.4); }
   button.btn.note{ background: var(--note-bg); color: var(--note); border-color: rgba(76,141,255,0.4); }
+  button.btn.extend{ background: var(--extend-bg); color: var(--extend); border-color: rgba(167,139,250,0.4); }
   button.btn:disabled{ opacity:0.4; cursor:default; }
   .actions .spacer{ flex:1; }
   html[data-layout="mobile"] .actions .spacer{ display:none; }
@@ -164,6 +167,8 @@
   .cal-grid{ display:grid; grid-template-columns: repeat(7, 1fr); gap:6px; }
   .cal-dow{ text-align:center; font-size:11px; color: var(--ink-faint); padding-bottom:4px; }
   .cal-cell{ aspect-ratio: 1; border-radius:4px; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:13px; color: var(--ink-soft); background:var(--card); position:relative; cursor:pointer; }
+  .cal-day-num{ font-weight:600; }
+  .cal-day-count{ position:absolute; bottom:15%; left:50%; transform:translateX(-50%); font-size:11px; font-weight:600; opacity:0.9; }
   .cal-cell.empty{ border:none; background:transparent; }
   .cal-summary{ margin-top:18px; padding-top:14px; border-top:1px solid var(--border); font-size:13px; color: var(--ink-soft); text-align:center; }
   .cal-summary div + div{ margin-top:4px; }
@@ -366,9 +371,12 @@
         <input type="checkbox" id="editDaily">
         <label for="editDaily">Daily problem</label>
       </div>
-      <div class="row">
-        <button class="btn" id="cancelEdit">Cancel</button>
-        <button class="btn primary" id="saveEdit">Save changes</button>
+      <div class="row" style="justify-content:space-between;">
+        <button class="btn" id="resetProgressBtn" style="color:var(--giveup);">Reset progress</button>
+        <div style="display:flex; gap:10px;">
+          <button class="btn" id="cancelEdit">Cancel</button>
+          <button class="btn primary" id="saveEdit">Save changes</button>
+        </div>
       </div>
     </div>
   </div>
@@ -379,6 +387,7 @@
       <div id="dayModalBody"></div>
       <div class="row">
         <button class="btn" id="dayModalClose">Close</button>
+        <button class="btn note" id="dayModalEdit" style="display:none;">Note</button>
         <button class="btn primary" id="dayModalSave" style="display:none;">Save note</button>
       </div>
     </div>
@@ -498,7 +507,6 @@
         applyLayout();
         ensurePracticeCurrent();
         ensureDailyForToday();
-        renderEverything();
         updateSyncStatus('Synced.');
       } else {
         await pushToCloud();
@@ -507,6 +515,7 @@
       console.error('Could not reach the cloud', e);
       updateSyncStatus('Could not reach the cloud — using local data for now.');
     }
+    renderEverything();
   }
 
   function applyTheme(theme){
@@ -562,6 +571,18 @@
     do{ next = pool[Math.floor(Math.random()*pool.length)]; }while(next.id === data.currentId);
     data.currentId = next.id;
   }
+  function findCarryOverProblemId(){
+    const y = new Date();
+    y.setDate(y.getDate() - 1);
+    const prevStr = todayStr(y);
+    const prevEntry = data.dailyHistory && data.dailyHistory[prevStr];
+    if(!prevEntry || !prevEntry.problemId) return null;
+    const p = data.problems.find(x=>x.id===prevEntry.problemId);
+    if(!p || !p.daily) return null;
+    if(isSolved(p.id)) return null;
+    return p.id;
+  }
+
   function ensureDailyForToday(){
     const today = todayStr();
     data.dailyHistory = data.dailyHistory || {};
@@ -572,7 +593,9 @@
     }
     const pool = activePool(dailyPool());
     if(pool.length === 0){ data.dailyCurrent = null; if(existing) delete data.dailyHistory[today]; return; }
-    const pick = pool[Math.floor(Math.random()*pool.length)];
+    const carryId = findCarryOverProblemId();
+    const carryProblem = carryId ? pool.find(p=>p.id===carryId) : null;
+    const pick = carryProblem || pool[Math.floor(Math.random()*pool.length)];
     data.dailyCurrent = { id: pick.id, date: today };
     data.dailyHistory[today] = { problemId: pick.id, note: '' };
   }
@@ -703,6 +726,8 @@
     const p = data.problems.find(x=>x.id===data.dailyCurrent.id);
     if(!p){ data.dailyCurrent = null; ensureDailyForToday(); return renderDailyCard(); }
     const st = statusFor(p.id);
+    const today = todayStr();
+    const extendedToday = !!(data.dailyHistory && data.dailyHistory[today] && data.dailyHistory[today].extended);
     card.innerHTML = `
       <div class="meta"><span>Today's problem</span></div>
       ${st.solved ? `<div class="solved-note">✓ Solved — nice work!</div>` : ''}
@@ -714,6 +739,7 @@
         <button class="btn note" id="dNote">Note</button>
         <button class="btn hint" id="dHint" ${st.solved||st.hint?'disabled':''}>Hint</button>
         <button class="btn giveup" id="dGiveup" ${st.solved?'disabled':''}>Give up</button>
+        <button class="btn extend" id="dExtend" ${st.solved||extendedToday?'disabled':''}>Extend</button>
       </div>
     `;
     document.getElementById('dailyText').textContent = p.text;
@@ -727,6 +753,7 @@
     document.getElementById('dHint').onclick = ()=>dailyAction('hint');
     document.getElementById('dNote').onclick = ()=>openNoteModal(p.id);
     document.getElementById('dGiveup').onclick = ()=>dailyAction('giveup');
+    document.getElementById('dExtend').onclick = ()=>extendDailyProblem();
   }
   function dailyAction(type){
     const id = data.dailyCurrent && data.dailyCurrent.id;
@@ -736,6 +763,17 @@
     saveData();
     renderDailyCard(); renderStats(); renderProblemsView();
     showToast('dailyToast', type === 'giveup' ? 'Moved to your practice pool.' : ACTION_MESSAGES[type]);
+  }
+  function extendDailyProblem(){
+    const id = data.dailyCurrent && data.dailyCurrent.id;
+    if(!id) return;
+    const today = todayStr();
+    data.dailyHistory = data.dailyHistory || {};
+    if(!data.dailyHistory[today]) data.dailyHistory[today] = { problemId: id, note: '' };
+    data.dailyHistory[today].extended = true;
+    saveData();
+    renderDailyCard(); renderStats(); renderProblemsView();
+    showToast('dailyToast', 'Extended — same problem again tomorrow.');
   }
 
   // ---- Calendar view ----
@@ -750,6 +788,7 @@
     let status = 'pending';
     if(solved) status = 'solved';
     else if(giveup) status = 'giveup';
+    else if(entry.extended) status = 'extended';
     else if(hasNote) status = 'noted';
     return { status, hint };
   }
@@ -777,13 +816,15 @@
       if(entryStatus){
         if(entryStatus.status==='solved'){ bg='var(--solved)'; textColor='#08090B'; }
         else if(entryStatus.status==='giveup'){ bg='var(--giveup)'; textColor='#08090B'; }
+        else if(entryStatus.status==='extended'){ bg='var(--extend)'; textColor='#08090B'; }
         else if(entryStatus.status==='noted'){ bg='var(--note)'; textColor='#08090B'; }
       }
       el.style.background=bg; el.style.color=textColor;
       if(dateStr===todayKey) el.style.borderColor='var(--primary)';
       const hintTaken = entryStatus && entryStatus.hint;
-      el.title = !entryStatus ? 'No daily problem assigned' : (entryStatus.status==='solved' ? 'Solved' : entryStatus.status==='giveup' ? 'Given up' : 'Not solved yet') + (hintTaken ? ' · hint taken' : '');
-      el.innerHTML = `${day}${hintTaken ? '<span class="hint-badge"></span>' : ''}`;
+      const dayTotal = data.events.filter(e=>e.type==='solved' && e.date===dateStr).length;
+      el.title = (!entryStatus ? 'No daily problem assigned' : (entryStatus.status==='solved' ? 'Solved' : entryStatus.status==='giveup' ? 'Given up' : entryStatus.status==='extended' ? 'Extended' : 'Not solved yet') + (hintTaken ? ' · hint taken' : '')) + ` · ${dayTotal} solved total`;
+      el.innerHTML = `<span class="cal-day-num">${day}</span>${dayTotal>0 ? `<span class="cal-day-count">${dayTotal}</span>` : ''}${hintTaken ? '<span class="hint-badge"></span>' : ''}`;
       grid.appendChild(el);
     }
     document.getElementById('calMonthTotal').textContent = monthSolved;
@@ -798,30 +839,51 @@
     const title = document.getElementById('dayModalTitle');
     const body = document.getElementById('dayModalBody');
     const saveBtn = document.getElementById('dayModalSave');
+    const editBtn = document.getElementById('dayModalEdit');
     title.textContent = dateStr;
     if(!entry){
       body.innerHTML = `<p class="hint-text">No daily problem was assigned this day.</p>`;
       saveBtn.style.display = 'none';
+      editBtn.style.display = 'none';
       document.getElementById('dayModalBackdrop').classList.add('open');
       return;
     }
     const p = data.problems.find(x=>x.id===entry.problemId);
     const solved = data.events.some(e=>e.problemId===entry.problemId && e.type==='solved' && e.date===dateStr);
     const hint = data.events.some(e=>e.problemId===entry.problemId && e.type==='hint' && e.date===dateStr);
+    const hasNote = !!(entry.note && entry.note.trim());
+    let statusLine = solved ? '✓ Solved' : (entry.extended ? 'Extended to next day' : 'Not solved yet');
     body.innerHTML = `
       ${p ? sourceHtml(p) : ''}
       <div class="modal-text">${p ? escapeHtml(p.text) : '(problem removed)'}</div>
-      <p class="hint-text">${solved ? '✓ Solved' : 'Not solved yet'}${hint ? ' · Hint taken' : ''}</p>
+      <p class="hint-text">${statusLine}${hint ? ' · Hint taken' : ''}</p>
       <label style="font-size:12px;color:var(--ink-faint);display:block;margin-bottom:6px;">Progress note</label>
-      <textarea id="dayNoteInput" placeholder="Add a note about your progress...">${escapeHtml(entry.note || '')}</textarea>
+      <div id="dayNoteView" class="note-box" style="display:${hasNote ? 'block' : 'none'};"></div>
+      <p class="hint-text" id="dayNoteEmpty" style="display:${hasNote ? 'none' : 'block'};">No note yet.</p>
+      <textarea id="dayNoteInput" placeholder="Add a note about your progress..." style="display:none;">${escapeHtml(entry.note || '')}</textarea>
     `;
     const textEl = body.querySelector('.modal-text');
     if(textEl) renderMath(textEl);
-    saveBtn.style.display = 'inline-block';
+    if(hasNote){
+      const nv = document.getElementById('dayNoteView');
+      nv.textContent = entry.note;
+      renderMath(nv);
+    }
+    editBtn.style.display = 'inline-block';
+    saveBtn.style.display = 'none';
+    editBtn.onclick = ()=>{
+      document.getElementById('dayNoteView').style.display = 'none';
+      document.getElementById('dayNoteEmpty').style.display = 'none';
+      document.getElementById('dayNoteInput').style.display = 'block';
+      editBtn.style.display = 'none';
+      saveBtn.style.display = 'inline-block';
+      document.getElementById('dayNoteInput').focus();
+    };
     saveBtn.onclick = async ()=>{
       entry.note = document.getElementById('dayNoteInput').value;
       await saveData();
-      document.getElementById('dayModalBackdrop').classList.remove('open');
+      openDayDetail(dateStr);
+      renderCalendar();
     };
     document.getElementById('dayModalBackdrop').classList.add('open');
   }
@@ -945,6 +1007,23 @@
     editProblemId = null;
   }
   document.getElementById('cancelEdit').onclick = closeEditModal;
+  document.getElementById('resetProgressBtn').onclick = ()=>{
+    if(!editProblemId) return;
+    const id = editProblemId;
+    showModalMessage('Reset progress?', 'This clears solved status, hint taken, given-up status, and the note for this problem. This cannot be undone.', {
+      okLabel: 'Reset', danger: true, showCancel: true,
+      onOk: async ()=>{
+        data.events = data.events.filter(e=>e.problemId!==id);
+        const p = data.problems.find(x=>x.id===id);
+        if(p) p.note = '';
+        closeEditModal();
+        ensurePracticeCurrent();
+        ensureDailyForToday();
+        await saveData();
+        renderEverything();
+      }
+    });
+  };
   document.getElementById('saveEdit').onclick = async ()=>{
     if(!editProblemId) return;
     const p = data.problems.find(x=>x.id===editProblemId);
@@ -1164,7 +1243,13 @@
 
   async function init(){
     await loadLocalData();
-    renderEverything();
+    if(db){
+      document.getElementById('practiceCard').innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
+      document.getElementById('dailyCard').innerHTML = '<div class="empty-state"><p>Loading…</p></div>';
+      renderStats();
+    } else {
+      renderEverything();
+    }
     await pullFromCloud();
   }
   init();
