@@ -146,7 +146,6 @@
   button.btn.primary:hover{ background: var(--primary-hover); }
   button.btn.solved{ background: var(--solved-bg); color: var(--solved); border-color: rgba(62,207,142,0.35); }
   button.btn.hint{ background: var(--hint-bg); color: var(--hint); border-color: rgba(232,184,75,0.4); }
-  button.btn.giveup{ background: var(--giveup-bg); color: var(--giveup); border-color: rgba(255,107,107,0.4); }
   button.btn.note{ background: var(--note-bg); color: var(--note); border-color: rgba(76,141,255,0.4); }
   button.btn.extend{ background: var(--extend-bg); color: var(--extend); border-color: rgba(167,139,250,0.4); }
   button.btn:disabled{ opacity:0.4; cursor:default; }
@@ -177,17 +176,20 @@
   /* Problems grid */
   .pool-section{ margin-bottom: 26px; }
   .pool-section h3{ font-family:'Source Serif 4', Georgia, serif; font-size:16px; font-weight:600; margin:0 0 12px; color: var(--ink-soft); }
+  html[data-layout="mobile"] .pool-section h3{ font-size:13px; margin-bottom:8px; }
   .pgrid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap:8px; }
+  html[data-layout="mobile"] .pgrid{ grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap:6px; }
   .pgrid-cell{
     aspect-ratio:1; border-radius:4px; display:flex; align-items:center; justify-content:center;
     font-size:12px; font-weight:600; cursor:pointer; position:relative;
   }
+  html[data-layout="mobile"] .pgrid-cell{ font-size:10.5px; }
   .pgrid-cell.ok{ background: var(--solved); color:#08090B; }
-  .pgrid-cell.giveup{ background: var(--giveup); color:#08090B; }
   .pgrid-cell.noted{ background: var(--note); color:#08090B; }
   .pgrid-cell.pending{ background: var(--card); border:1px solid var(--border); color: var(--ink-soft); }
   .hint-badge{ position:absolute; top:-4px; right:-4px; width:12px; height:12px; border-radius:50%; background: var(--dot); border:2px solid var(--bg); }
   .pool-empty{ font-size:13px; color: var(--ink-faint); }
+  html[data-layout="mobile"] .pool-empty{ font-size:12px; }
 
   /* Modal */
   .modal-backdrop{ position:fixed; inset:0; background: rgba(0,0,0,0.55); display:none; align-items:center; justify-content:center; z-index:50; padding:20px; }
@@ -353,6 +355,7 @@
       <div class="note-box" id="detailNoteBox" style="display:none;"></div>
       <div class="row">
         <button class="btn note" id="detailNote" style="margin-right:auto;">Note</button>
+        <button class="btn" id="detailJump" style="display:none;">Jump</button>
         <button class="btn" id="detailEdit">Edit</button>
         <button class="btn" id="detailRemove" style="color:var(--giveup);">Remove</button>
         <button class="btn primary" id="detailClose">Close</button>
@@ -424,14 +427,18 @@
   let calYear = new Date().getFullYear();
   let detailProblemId = null;
 
+  function nowShifted(){
+    // The "day" restarts at 4am local time, not midnight — late-night work still counts as the same day.
+    return new Date(Date.now() - 4*60*60*1000);
+  }
   function todayStr(d){
-    d = d || new Date();
+    d = d || nowShifted();
     const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
     return `${y}-${m}-${day}`;
   }
   function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
   function escapeHtml(s){ return s.replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-  const ACTION_MESSAGES = { solved:'Marked solved.', hint:'Hint noted for this problem.', giveup:'Marked as given up.' };
+  const ACTION_MESSAGES = { solved:'Marked solved.', hint:'Hint noted for this problem.' };
 
   async function loadLocalData(){
     try{
@@ -572,7 +579,7 @@
     data.currentId = next.id;
   }
   function findCarryOverProblemId(){
-    const y = new Date();
+    const y = nowShifted();
     y.setDate(y.getDate() - 1);
     const prevStr = todayStr(y);
     const prevEntry = data.dailyHistory && data.dailyHistory[prevStr];
@@ -580,7 +587,7 @@
     const p = data.problems.find(x=>x.id===prevEntry.problemId);
     if(!p || !p.daily) return null;
     if(isSolved(p.id)) return null;
-    return p.id;
+    return { id: p.id, prevStr };
   }
 
   function ensureDailyForToday(){
@@ -593,27 +600,20 @@
     }
     const pool = activePool(dailyPool());
     if(pool.length === 0){ data.dailyCurrent = null; if(existing) delete data.dailyHistory[today]; return; }
-    const carryId = findCarryOverProblemId();
-    const carryProblem = carryId ? pool.find(p=>p.id===carryId) : null;
+    const carry = findCarryOverProblemId();
+    const carryProblem = carry ? pool.find(p=>p.id===carry.id) : null;
+    if(carryProblem && data.dailyHistory[carry.prevStr]){
+      data.dailyHistory[carry.prevStr].extended = true;
+    }
     const pick = carryProblem || pool[Math.floor(Math.random()*pool.length)];
     data.dailyCurrent = { id: pick.id, date: today };
     data.dailyHistory[today] = { problemId: pick.id, note: '' };
+    saveData();
   }
 
   function recordEvent(problemId, type){
     const today = todayStr();
     data.events.push({ id: genId(), problemId, type, date: today, ts: Date.now() });
-    if(type === 'giveup'){
-      const p = data.problems.find(x=>x.id===problemId);
-      if(p && p.daily){
-        p.daily = false;
-        if(data.dailyCurrent && data.dailyCurrent.id === problemId) data.dailyCurrent = null;
-        data.dailyHistory = data.dailyHistory || {};
-        if(data.dailyHistory[today] && data.dailyHistory[today].problemId === problemId){
-          delete data.dailyHistory[today];
-        }
-      }
-    }
   }
 
   function showToast(elId, msg){
@@ -684,7 +684,6 @@
         <button class="btn solved" id="pSolved">Solved</button>
         <button class="btn note" id="pNote">Note</button>
         <button class="btn hint" id="pHint" ${st.hint?'disabled':''}>Hint</button>
-        <button class="btn giveup" id="pGiveup">Give up</button>
         <span class="spacer"></span>
         <button class="btn primary" id="pNext" ${active.length<2?'disabled':''}>Next</button>
       </div>
@@ -699,7 +698,6 @@
     document.getElementById('pSolved').onclick = ()=>practiceAction('solved');
     document.getElementById('pHint').onclick = ()=>practiceAction('hint');
     document.getElementById('pNote').onclick = ()=>openNoteModal(p.id);
-    document.getElementById('pGiveup').onclick = ()=>practiceAction('giveup');
     document.getElementById('pNext').onclick = ()=>{ pickNextPractice(); saveData(); renderPracticeCard(); };
   }
   function practiceAction(type){
@@ -738,7 +736,6 @@
         <button class="btn solved" id="dSolved" ${st.solved?'disabled':''}>Solved</button>
         <button class="btn note" id="dNote">Note</button>
         <button class="btn hint" id="dHint" ${st.solved||st.hint?'disabled':''}>Hint</button>
-        <button class="btn giveup" id="dGiveup" ${st.solved?'disabled':''}>Give up</button>
         <button class="btn extend" id="dExtend" ${st.solved||extendedToday?'disabled':''}>Extend</button>
       </div>
     `;
@@ -752,17 +749,15 @@
     document.getElementById('dSolved').onclick = ()=>dailyAction('solved');
     document.getElementById('dHint').onclick = ()=>dailyAction('hint');
     document.getElementById('dNote').onclick = ()=>openNoteModal(p.id);
-    document.getElementById('dGiveup').onclick = ()=>dailyAction('giveup');
     document.getElementById('dExtend').onclick = ()=>extendDailyProblem();
   }
   function dailyAction(type){
     const id = data.dailyCurrent && data.dailyCurrent.id;
     if(!id) return;
     recordEvent(id, type);
-    if(type === 'giveup') ensureDailyForToday();
     saveData();
     renderDailyCard(); renderStats(); renderProblemsView();
-    showToast('dailyToast', type === 'giveup' ? 'Moved to your practice pool.' : ACTION_MESSAGES[type]);
+    showToast('dailyToast', ACTION_MESSAGES[type]);
   }
   function extendDailyProblem(){
     const id = data.dailyCurrent && data.dailyCurrent.id;
@@ -781,13 +776,11 @@
     const entry = data.dailyHistory && data.dailyHistory[dateStr];
     if(!entry || !entry.problemId) return null;
     const solved = data.events.some(e=>e.problemId===entry.problemId && e.type==='solved' && e.date===dateStr);
-    const giveup = data.events.some(e=>e.problemId===entry.problemId && e.type==='giveup' && e.date===dateStr);
     const hint = data.events.some(e=>e.problemId===entry.problemId && e.type==='hint' && e.date===dateStr);
     const p = data.problems.find(x=>x.id===entry.problemId);
     const hasNote = !!(p && p.note && p.note.trim());
     let status = 'pending';
     if(solved) status = 'solved';
-    else if(giveup) status = 'giveup';
     else if(entry.extended) status = 'extended';
     else if(hasNote) status = 'noted';
     return { status, hint };
@@ -815,7 +808,6 @@
       let bg='var(--card)', textColor='var(--ink-soft)';
       if(entryStatus){
         if(entryStatus.status==='solved'){ bg='var(--solved)'; textColor='#08090B'; }
-        else if(entryStatus.status==='giveup'){ bg='var(--giveup)'; textColor='#08090B'; }
         else if(entryStatus.status==='extended'){ bg='var(--extend)'; textColor='#08090B'; }
         else if(entryStatus.status==='noted'){ bg='var(--note)'; textColor='#08090B'; }
       }
@@ -823,7 +815,7 @@
       if(dateStr===todayKey) el.style.borderColor='var(--primary)';
       const hintTaken = entryStatus && entryStatus.hint;
       const dayTotal = data.events.filter(e=>e.type==='solved' && e.date===dateStr).length;
-      el.title = (!entryStatus ? 'No daily problem assigned' : (entryStatus.status==='solved' ? 'Solved' : entryStatus.status==='giveup' ? 'Given up' : entryStatus.status==='extended' ? 'Extended' : 'Not solved yet') + (hintTaken ? ' · hint taken' : '')) + ` · ${dayTotal} solved total`;
+      el.title = (!entryStatus ? 'No daily problem assigned' : (entryStatus.status==='solved' ? 'Solved' : entryStatus.status==='extended' ? 'Extended' : 'Not solved yet') + (hintTaken ? ' · hint taken' : '')) + ` · ${dayTotal} solved total`;
       el.innerHTML = `<span class="cal-day-num">${day}</span>${dayTotal>0 ? `<span class="cal-day-count">${dayTotal}</span>` : ''}${hintTaken ? '<span class="hint-badge"></span>' : ''}`;
       grid.appendChild(el);
     }
@@ -897,10 +889,9 @@
   function statusFor(problemId){
     const solved = data.events.some(e=>e.problemId===problemId && e.type==='solved');
     const hint = data.events.some(e=>e.problemId===problemId && e.type==='hint');
-    const giveup = data.events.some(e=>e.problemId===problemId && e.type==='giveup');
     const p = data.problems.find(x=>x.id===problemId);
     const hasNote = !!(p && p.note && p.note.trim());
-    return { solved, hint, giveup, hasNote };
+    return { solved, hint, hasNote };
   }
   function buildGrid(pool){
     if(pool.length === 0) return '';
@@ -908,7 +899,6 @@
       const st = statusFor(p.id);
       let cls = 'pending';
       if(st.solved) cls = 'ok';
-      else if(st.giveup) cls = 'giveup';
       else if(st.hasNote) cls = 'noted';
       return `<div class="pgrid-cell ${cls}" data-id="${p.id}" title="${escapeHtml(p.name || p.text.slice(0,50))}">${i+1}${st.hint ? '<span class="hint-badge"></span>' : ''}</div>`;
     }).join('');
@@ -937,8 +927,26 @@
       noteBox.style.display = 'none';
       noteBox.textContent = '';
     }
+    const st = statusFor(id);
+    document.getElementById('detailJump').style.display = st.solved ? 'none' : 'inline-block';
     document.getElementById('detailModalBackdrop').classList.add('open');
   }
+  document.getElementById('detailJump').onclick = ()=>{
+    if(!detailProblemId) return;
+    const p = data.problems.find(x=>x.id===detailProblemId);
+    if(!p) return;
+    if(p.daily){
+      p.daily = false;
+      if(data.dailyCurrent && data.dailyCurrent.id === p.id) data.dailyCurrent = null;
+    }
+    data.currentId = p.id;
+    document.getElementById('detailModalBackdrop').classList.remove('open');
+    detailProblemId = null;
+    ensureDailyForToday();
+    saveData();
+    renderEverything();
+    switchTab('practice');
+  };
   document.getElementById('gridDaily').addEventListener('click', e=>{ const c=e.target.closest('.pgrid-cell'); if(c) openDetail(c.getAttribute('data-id')); });
   document.getElementById('gridPractice').addEventListener('click', e=>{ const c=e.target.closest('.pgrid-cell'); if(c) openDetail(c.getAttribute('data-id')); });
   document.getElementById('detailClose').onclick = ()=>{ document.getElementById('detailModalBackdrop').classList.remove('open'); detailProblemId=null; };
@@ -1010,7 +1018,7 @@
   document.getElementById('resetProgressBtn').onclick = ()=>{
     if(!editProblemId) return;
     const id = editProblemId;
-    showModalMessage('Reset progress?', 'This clears solved status, hint taken, given-up status, and the note for this problem. This cannot be undone.', {
+    showModalMessage('Reset progress?', 'This clears solved status, hint taken, and the note for this problem. This cannot be undone.', {
       okLabel: 'Reset', danger: true, showCancel: true,
       onOk: async ()=>{
         data.events = data.events.filter(e=>e.problemId!==id);
@@ -1112,7 +1120,7 @@
         text: p.text,
         note: p.note || '',
         pool: p.daily ? 'daily' : 'practice',
-        status: st.solved ? 'solved' : (st.giveup ? 'given_up' : 'unsolved'),
+        status: st.solved ? 'solved' : 'unsolved',
         hintTaken: !!st.hint,
         createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : null
       };
