@@ -165,9 +165,9 @@
   .cal-nav button{ background:var(--card); border:1px solid var(--border); border-radius:4px; cursor:pointer; width:34px; height:34px; font-size:16px; color:var(--ink-soft); }
   .cal-grid{ display:grid; grid-template-columns: repeat(7, 1fr); gap:6px; }
   .cal-dow{ text-align:center; font-size:11px; color: var(--ink-faint); padding-bottom:4px; }
-  .cal-cell{ aspect-ratio: 1; border-radius:4px; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:13px; color: var(--ink-soft); background:var(--card); position:relative; cursor:pointer; }
-  .cal-day-num{ font-weight:600; }
-  .cal-day-count{ position:absolute; bottom:15%; left:50%; transform:translateX(-50%); font-size:11px; font-weight:600; opacity:0.9; }
+  .cal-cell{ aspect-ratio: 1; border-radius:4px; border:1px solid var(--border); position:relative; background:var(--card); color: var(--ink-soft); cursor:pointer; }
+  .cal-day-num{ position:absolute; top:4px; left:6px; font-size:10px; font-weight:600; opacity:0.8; }
+  .cal-day-count{ position:absolute; top:58%; left:50%; transform:translate(-50%,-50%); font-size:19px; font-weight:700; }
   .cal-cell.empty{ border:none; background:transparent; }
   .cal-summary{ margin-top:18px; padding-top:14px; border-top:1px solid var(--border); font-size:13px; color: var(--ink-soft); text-align:center; }
   .cal-summary div + div{ margin-top:4px; }
@@ -438,6 +438,11 @@
   }
   function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
   function escapeHtml(s){ return s.replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function withStableScroll(fn){
+    const y = window.scrollY;
+    fn();
+    requestAnimationFrame(()=>{ window.scrollTo(0, y); });
+  }
   const ACTION_MESSAGES = { solved:'Marked solved.', hint:'Hint noted for this problem.' };
 
   async function loadLocalData(){
@@ -698,7 +703,7 @@
     document.getElementById('pSolved').onclick = ()=>practiceAction('solved');
     document.getElementById('pHint').onclick = ()=>practiceAction('hint');
     document.getElementById('pNote').onclick = ()=>openNoteModal(p.id);
-    document.getElementById('pNext').onclick = ()=>{ pickNextPractice(); saveData(); renderPracticeCard(); };
+    document.getElementById('pNext').onclick = ()=>{ withStableScroll(()=>{ pickNextPractice(); saveData(); renderPracticeCard(); }); };
   }
   function practiceAction(type){
     const p = data.problems.find(x=>x.id===data.currentId);
@@ -706,7 +711,8 @@
     recordEvent(p.id, type);
     if(type !== 'hint') pickNextPractice();
     saveData();
-    renderPracticeCard(); renderStats();
+    withStableScroll(()=>{ renderPracticeCard(); });
+    renderStats();
     showToast('practiceToast', ACTION_MESSAGES[type]);
   }
 
@@ -756,7 +762,8 @@
     if(!id) return;
     recordEvent(id, type);
     saveData();
-    renderDailyCard(); renderStats(); renderProblemsView();
+    withStableScroll(()=>{ renderDailyCard(); });
+    renderStats(); renderProblemsView();
     showToast('dailyToast', ACTION_MESSAGES[type]);
   }
   function extendDailyProblem(){
@@ -767,7 +774,8 @@
     if(!data.dailyHistory[today]) data.dailyHistory[today] = { problemId: id, note: '' };
     data.dailyHistory[today].extended = true;
     saveData();
-    renderDailyCard(); renderStats(); renderProblemsView();
+    withStableScroll(()=>{ renderDailyCard(); });
+    renderStats(); renderProblemsView();
     showToast('dailyToast', 'Extended — same problem again tomorrow.');
   }
 
