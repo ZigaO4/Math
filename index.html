@@ -61,7 +61,7 @@
     justify-content:center;
     padding: 32px 16px 60px;
   }
-  html[data-layout="mobile"] body{ padding: 20px 14px calc(150px + env(safe-area-inset-bottom)); }
+  html[data-layout="mobile"] body{ padding: 20px 14px calc(260px + env(safe-area-inset-bottom)); }
   .app{ width:100%; max-width: 640px; }
 
   header{ display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom: 18px; flex-wrap:wrap; }
@@ -88,7 +88,7 @@
   .icon-btn:hover{ color: var(--ink); }
   .icon-btn.accent{ background: var(--primary); color:#08090B; border-color:var(--primary); font-weight:700; }
   html[data-layout="mobile"] #addBtn{
-    position:fixed; right:18px; bottom:calc(76px + env(safe-area-inset-bottom));
+    position:fixed; right:18px; bottom:calc(204px + env(safe-area-inset-bottom));
     width:54px; height:54px; border-radius:50%; font-size:26px;
     box-shadow: 0 6px 18px rgba(0,0,0,0.45); z-index:35;
   }
@@ -151,7 +151,12 @@
   button.btn:disabled{ opacity:0.4; cursor:default; }
   .actions .spacer{ flex:1; }
   html[data-layout="mobile"] .actions .spacer{ display:none; }
-  html[data-layout="mobile"] .actions{ flex-direction:column; }
+  html[data-layout="mobile"] .actions{
+    position:fixed; left:14px; right:14px; bottom:calc(76px + env(safe-area-inset-bottom));
+    display:grid; grid-template-columns:1fr 1fr; gap:8px;
+    background: var(--card); border:1px solid var(--border); border-radius:8px;
+    padding:10px; box-shadow: 0 -4px 16px rgba(0,0,0,0.35); z-index:25; margin-top:0;
+  }
 
   .toast{ font-size:13px; color: var(--ink-soft); margin-top:10px; height:16px; transition: opacity 0.4s; }
   .solved-note{ font-size:13px; color:var(--solved); background:var(--solved-bg); border:1px solid rgba(62,207,142,0.35); border-radius:4px; padding:8px 12px; margin-bottom:14px; }
@@ -584,15 +589,19 @@
     data.currentId = next.id;
   }
   function findCarryOverProblemId(){
-    const y = nowShifted();
-    y.setDate(y.getDate() - 1);
-    const prevStr = todayStr(y);
-    const prevEntry = data.dailyHistory && data.dailyHistory[prevStr];
+    const today = todayStr();
+    data.dailyHistory = data.dailyHistory || {};
+    let mostRecentDate = null;
+    for(const d in data.dailyHistory){
+      if(d < today && (!mostRecentDate || d > mostRecentDate)) mostRecentDate = d;
+    }
+    if(!mostRecentDate) return null;
+    const prevEntry = data.dailyHistory[mostRecentDate];
     if(!prevEntry || !prevEntry.problemId) return null;
     const p = data.problems.find(x=>x.id===prevEntry.problemId);
     if(!p || !p.daily) return null;
     if(isSolved(p.id)) return null;
-    return { id: p.id, prevStr };
+    return { id: p.id, prevStr: mostRecentDate };
   }
 
   function ensureDailyForToday(){
@@ -686,9 +695,9 @@
       ${st.hint ? `<div class="hint-note">Hint taken for this problem</div>` : ''}
       ${p.note && p.note.trim() ? `<div class="note-box" id="practiceNoteBox"></div>` : ''}
       <div class="actions">
-        <button class="btn solved" id="pSolved">Solved</button>
-        <button class="btn note" id="pNote">Note</button>
         <button class="btn hint" id="pHint" ${st.hint?'disabled':''}>Hint</button>
+        <button class="btn note" id="pNote">Note</button>
+        <button class="btn solved" id="pSolved">Solved</button>
         <span class="spacer"></span>
         <button class="btn primary" id="pNext" ${active.length<2?'disabled':''}>Next</button>
       </div>
@@ -739,9 +748,9 @@
       <div class="problem-text" id="dailyText"></div>
       ${p.note && p.note.trim() ? `<div class="note-box" id="dailyNoteBox"></div>` : ''}
       <div class="actions">
-        <button class="btn solved" id="dSolved" ${st.solved?'disabled':''}>Solved</button>
-        <button class="btn note" id="dNote">Note</button>
         <button class="btn hint" id="dHint" ${st.solved||st.hint?'disabled':''}>Hint</button>
+        <button class="btn note" id="dNote">Note</button>
+        <button class="btn solved" id="dSolved" ${st.solved?'disabled':''}>Solved</button>
         <button class="btn extend" id="dExtend" ${st.solved||extendedToday?'disabled':''}>Extend</button>
       </div>
     `;
@@ -1266,6 +1275,14 @@
       renderEverything();
     }
     await pullFromCloud();
+    if(!data.dailyPoolResetOct2026){
+      data.dailyHistory = {};
+      data.dailyCurrent = null;
+      data.dailyPoolResetOct2026 = true;
+      ensureDailyForToday();
+      await saveData();
+      renderEverything();
+    }
   }
   init();
 })();
