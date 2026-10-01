@@ -2,7 +2,7 @@
 <html lang="en" data-theme="green" data-layout="desktop">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Math</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.png">
@@ -138,7 +138,7 @@
   .actions{ display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
   button.btn{
     font-family:inherit; font-size:14px; font-weight:500; padding: 10px 16px; border-radius: 4px; cursor:pointer;
-    border:1px solid var(--border); background: var(--card); color: var(--ink);
+    border:1px solid var(--border); background: var(--card); color: var(--ink); touch-action: manipulation;
   }
   html[data-layout="mobile"] button.btn{ padding: 12px 14px; font-size:14px; flex: 1 1 auto; }
   button.btn:hover{ filter: brightness(1.12); }
@@ -860,23 +860,29 @@
     const p = data.problems.find(x=>x.id===entry.problemId);
     const solved = data.events.some(e=>e.problemId===entry.problemId && e.type==='solved' && e.date===dateStr);
     const hint = data.events.some(e=>e.problemId===entry.problemId && e.type==='hint' && e.date===dateStr);
-    const hasNote = !!(entry.note && entry.note.trim());
+    const hasNote = !!(p && p.note && p.note.trim());
     let statusLine = solved ? '✓ Solved' : (entry.extended ? 'Extended to next day' : 'Not solved yet');
     body.innerHTML = `
       ${p ? sourceHtml(p) : ''}
       <div class="modal-text">${p ? escapeHtml(p.text) : '(problem removed)'}</div>
       <p class="hint-text">${statusLine}${hint ? ' · Hint taken' : ''}</p>
-      <label style="font-size:12px;color:var(--ink-faint);display:block;margin-bottom:6px;">Progress note</label>
+      <label style="font-size:12px;color:var(--ink-faint);display:block;margin-bottom:6px;">Note</label>
       <div id="dayNoteView" class="note-box" style="display:${hasNote ? 'block' : 'none'};"></div>
       <p class="hint-text" id="dayNoteEmpty" style="display:${hasNote ? 'none' : 'block'};">No note yet.</p>
-      <textarea id="dayNoteInput" placeholder="Add a note about your progress..." style="display:none;">${escapeHtml(entry.note || '')}</textarea>
+      <textarea id="dayNoteInput" placeholder="Add a note about your progress..." style="display:none;">${escapeHtml((p && p.note) || '')}</textarea>
     `;
     const textEl = body.querySelector('.modal-text');
     if(textEl) renderMath(textEl);
     if(hasNote){
       const nv = document.getElementById('dayNoteView');
-      nv.textContent = entry.note;
+      nv.textContent = p.note;
       renderMath(nv);
+    }
+    if(!p){
+      editBtn.style.display = 'none';
+      saveBtn.style.display = 'none';
+      document.getElementById('dayModalBackdrop').classList.add('open');
+      return;
     }
     editBtn.style.display = 'inline-block';
     saveBtn.style.display = 'none';
@@ -889,10 +895,11 @@
       document.getElementById('dayNoteInput').focus();
     };
     saveBtn.onclick = async ()=>{
-      entry.note = document.getElementById('dayNoteInput').value;
+      p.note = document.getElementById('dayNoteInput').value;
       await saveData();
       openDayDetail(dateStr);
       renderCalendar();
+      renderPracticeCard(); renderDailyCard(); renderProblemsView();
     };
     document.getElementById('dayModalBackdrop').classList.add('open');
   }
