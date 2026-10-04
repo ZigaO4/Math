@@ -2,7 +2,7 @@
 <html lang="en" data-theme="green" data-layout="desktop">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Math</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.png">
@@ -138,7 +138,7 @@
   .actions{ display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
   button.btn{
     font-family:inherit; font-size:14px; font-weight:500; padding: 10px 16px; border-radius: 4px; cursor:pointer;
-    border:1px solid var(--border); background: var(--card); color: var(--ink); touch-action: manipulation;
+    border:1px solid var(--border); background: var(--card); color: var(--ink);
   }
   html[data-layout="mobile"] button.btn{ padding: 12px 14px; font-size:14px; flex: 1 1 auto; }
   button.btn:hover{ filter: brightness(1.12); }
@@ -146,6 +146,7 @@
   button.btn.primary:hover{ background: var(--primary-hover); }
   button.btn.solved{ background: var(--solved-bg); color: var(--solved); border-color: rgba(62,207,142,0.35); }
   button.btn.hint{ background: var(--hint-bg); color: var(--hint); border-color: rgba(232,184,75,0.4); }
+  button.btn.giveup{ background: var(--giveup-bg); color: var(--giveup); border-color: rgba(255,107,107,0.4); }
   button.btn.note{ background: var(--note-bg); color: var(--note); border-color: rgba(76,141,255,0.4); }
   button.btn.extend{ background: var(--extend-bg); color: var(--extend); border-color: rgba(167,139,250,0.4); }
   button.btn:disabled{ opacity:0.4; cursor:default; }
@@ -190,6 +191,7 @@
   }
   html[data-layout="mobile"] .pgrid-cell{ font-size:10.5px; }
   .pgrid-cell.ok{ background: var(--solved); color:#08090B; }
+  .pgrid-cell.giveup{ background: var(--giveup); color:#08090B; }
   .pgrid-cell.noted{ background: var(--note); color:#08090B; }
   .pgrid-cell.pending{ background: var(--card); border:1px solid var(--border); color: var(--ink-soft); }
   .hint-badge{ position:absolute; top:-4px; right:-4px; width:12px; height:12px; border-radius:50%; background: var(--dot); border:2px solid var(--bg); }
@@ -616,8 +618,19 @@
     if(pool.length === 0){ data.dailyCurrent = null; if(existing) delete data.dailyHistory[today]; return; }
     const carry = findCarryOverProblemId();
     const carryProblem = carry ? pool.find(p=>p.id===carry.id) : null;
-    if(carryProblem && data.dailyHistory[carry.prevStr]){
-      data.dailyHistory[carry.prevStr].extended = true;
+    if(carryProblem){
+      if(data.dailyHistory[carry.prevStr]) data.dailyHistory[carry.prevStr].extended = true;
+      // Backfill any days the app wasn't opened on, so they also show as extended rather than blank.
+      let cursor = new Date(carry.prevStr + 'T00:00:00');
+      cursor.setDate(cursor.getDate() + 1);
+      const todayDateOnly = new Date(today + 'T00:00:00');
+      while(cursor < todayDateOnly){
+        const dStr = todayStr(cursor);
+        if(!data.dailyHistory[dStr]){
+          data.dailyHistory[dStr] = { problemId: carryProblem.id, note: '', extended: true };
+        }
+        cursor.setDate(cursor.getDate() + 1);
+      }
     }
     const pick = carryProblem || pool[Math.floor(Math.random()*pool.length)];
     data.dailyCurrent = { id: pick.id, date: today };
@@ -628,6 +641,17 @@
   function recordEvent(problemId, type){
     const today = todayStr();
     data.events.push({ id: genId(), problemId, type, date: today, ts: Date.now() });
+    if(type === 'giveup'){
+      const p = data.problems.find(x=>x.id===problemId);
+      if(p && p.daily){
+        p.daily = false;
+        if(data.dailyCurrent && data.dailyCurrent.id === problemId) data.dailyCurrent = null;
+        data.dailyHistory = data.dailyHistory || {};
+        if(data.dailyHistory[today] && data.dailyHistory[today].problemId === problemId){
+          delete data.dailyHistory[today];
+        }
+      }
+    }
   }
 
   function showToast(elId, msg){
@@ -751,7 +775,8 @@
         <button class="btn hint" id="dHint" ${st.solved||st.hint?'disabled':''}>Hint</button>
         <button class="btn note" id="dNote">Note</button>
         <button class="btn solved" id="dSolved" ${st.solved?'disabled':''}>Solved</button>
-        <button class="btn extend" id="dExtend" ${st.solved||extendedToday?'disabled':''}>Extend</button>
+        <button class="btn giveup" id="dGiveup" ${st.solved?'disabled':''}>Give up</button>
+        <button class="btn extend" id="dExtend" ${st.solved||extendedToday?'disabled':''} style="grid-column:1/-1;">Extend</button>
       </div>
     `;
     document.getElementById('dailyText').textContent = p.text;
@@ -764,16 +789,18 @@
     document.getElementById('dSolved').onclick = ()=>dailyAction('solved');
     document.getElementById('dHint').onclick = ()=>dailyAction('hint');
     document.getElementById('dNote').onclick = ()=>openNoteModal(p.id);
+    document.getElementById('dGiveup').onclick = ()=>dailyAction('giveup');
     document.getElementById('dExtend').onclick = ()=>extendDailyProblem();
   }
   function dailyAction(type){
     const id = data.dailyCurrent && data.dailyCurrent.id;
     if(!id) return;
     recordEvent(id, type);
+    if(type === 'giveup') ensureDailyForToday();
     saveData();
     withStableScroll(()=>{ renderDailyCard(); });
     renderStats(); renderProblemsView();
-    showToast('dailyToast', ACTION_MESSAGES[type]);
+    showToast('dailyToast', type === 'giveup' ? 'Moved to your practice pool.' : ACTION_MESSAGES[type]);
   }
   function extendDailyProblem(){
     const id = data.dailyCurrent && data.dailyCurrent.id;
@@ -793,11 +820,13 @@
     const entry = data.dailyHistory && data.dailyHistory[dateStr];
     if(!entry || !entry.problemId) return null;
     const solved = data.events.some(e=>e.problemId===entry.problemId && e.type==='solved' && e.date===dateStr);
+    const giveup = data.events.some(e=>e.problemId===entry.problemId && e.type==='giveup' && e.date===dateStr);
     const hint = data.events.some(e=>e.problemId===entry.problemId && e.type==='hint' && e.date===dateStr);
     const p = data.problems.find(x=>x.id===entry.problemId);
     const hasNote = !!(p && p.note && p.note.trim());
     let status = 'pending';
     if(solved) status = 'solved';
+    else if(giveup) status = 'giveup';
     else if(entry.extended) status = 'extended';
     else if(hasNote) status = 'noted';
     return { status, hint };
@@ -825,6 +854,7 @@
       let bg='var(--card)', textColor='var(--ink-soft)';
       if(entryStatus){
         if(entryStatus.status==='solved'){ bg='var(--solved)'; textColor='#08090B'; }
+        else if(entryStatus.status==='giveup'){ bg='var(--giveup)'; textColor='#08090B'; }
         else if(entryStatus.status==='extended'){ bg='var(--extend)'; textColor='#08090B'; }
         else if(entryStatus.status==='noted'){ bg='var(--note)'; textColor='#08090B'; }
       }
@@ -832,7 +862,7 @@
       if(dateStr===todayKey) el.style.borderColor='var(--primary)';
       const hintTaken = entryStatus && entryStatus.hint;
       const dayTotal = data.events.filter(e=>e.type==='solved' && e.date===dateStr).length;
-      el.title = (!entryStatus ? 'No daily problem assigned' : (entryStatus.status==='solved' ? 'Solved' : entryStatus.status==='extended' ? 'Extended' : 'Not solved yet') + (hintTaken ? ' · hint taken' : '')) + ` · ${dayTotal} solved total`;
+      el.title = (!entryStatus ? 'No daily problem assigned' : (entryStatus.status==='solved' ? 'Solved' : entryStatus.status==='giveup' ? 'Given up' : entryStatus.status==='extended' ? 'Extended' : 'Not solved yet') + (hintTaken ? ' · hint taken' : '')) + ` · ${dayTotal} solved total`;
       el.innerHTML = `<span class="cal-day-num">${day}</span>${dayTotal>0 ? `<span class="cal-day-count">${dayTotal}</span>` : ''}${hintTaken ? '<span class="hint-badge"></span>' : ''}`;
       grid.appendChild(el);
     }
@@ -859,9 +889,10 @@
     }
     const p = data.problems.find(x=>x.id===entry.problemId);
     const solved = data.events.some(e=>e.problemId===entry.problemId && e.type==='solved' && e.date===dateStr);
+    const giveup = data.events.some(e=>e.problemId===entry.problemId && e.type==='giveup' && e.date===dateStr);
     const hint = data.events.some(e=>e.problemId===entry.problemId && e.type==='hint' && e.date===dateStr);
     const hasNote = !!(p && p.note && p.note.trim());
-    let statusLine = solved ? '✓ Solved' : (entry.extended ? 'Extended to next day' : 'Not solved yet');
+    let statusLine = solved ? '✓ Solved' : (giveup ? 'Given up' : (entry.extended ? 'Extended to next day' : 'Not solved yet'));
     body.innerHTML = `
       ${p ? sourceHtml(p) : ''}
       <div class="modal-text">${p ? escapeHtml(p.text) : '(problem removed)'}</div>
@@ -913,9 +944,10 @@
   function statusFor(problemId){
     const solved = data.events.some(e=>e.problemId===problemId && e.type==='solved');
     const hint = data.events.some(e=>e.problemId===problemId && e.type==='hint');
+    const giveup = data.events.some(e=>e.problemId===problemId && e.type==='giveup');
     const p = data.problems.find(x=>x.id===problemId);
     const hasNote = !!(p && p.note && p.note.trim());
-    return { solved, hint, hasNote };
+    return { solved, hint, giveup, hasNote };
   }
   function buildGrid(pool){
     if(pool.length === 0) return '';
@@ -923,6 +955,7 @@
       const st = statusFor(p.id);
       let cls = 'pending';
       if(st.solved) cls = 'ok';
+      else if(st.giveup) cls = 'giveup';
       else if(st.hasNote) cls = 'noted';
       return `<div class="pgrid-cell ${cls}" data-id="${p.id}" title="${escapeHtml(p.name || p.text.slice(0,50))}">${i+1}${st.hint ? '<span class="hint-badge"></span>' : ''}</div>`;
     }).join('');
@@ -1042,7 +1075,7 @@
   document.getElementById('resetProgressBtn').onclick = ()=>{
     if(!editProblemId) return;
     const id = editProblemId;
-    showModalMessage('Reset progress?', 'This clears solved status, hint taken, and the note for this problem. This cannot be undone.', {
+    showModalMessage('Reset progress?', 'This clears solved status, hint taken, given-up status, and the note for this problem. This cannot be undone.', {
       okLabel: 'Reset', danger: true, showCancel: true,
       onOk: async ()=>{
         data.events = data.events.filter(e=>e.problemId!==id);
@@ -1144,7 +1177,7 @@
         text: p.text,
         note: p.note || '',
         pool: p.daily ? 'daily' : 'practice',
-        status: st.solved ? 'solved' : 'unsolved',
+        status: st.solved ? 'solved' : (st.giveup ? 'given_up' : 'unsolved'),
         hintTaken: !!st.hint,
         createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : null
       };
