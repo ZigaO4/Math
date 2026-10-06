@@ -1192,7 +1192,7 @@
     });
     const dailyCalendar = Object.keys(data.dailyHistory || {}).sort().map(date=>{
       const e = data.dailyHistory[date] || {};
-      return { date, problemId: e.problemId || null, note: e.note || '' };
+      return { date, problemId: e.problemId || null, note: e.note || '', extended: !!e.extended };
     });
     const history = data.events.slice().sort((a,b)=>a.ts-b.ts).map(e=>({
       date: e.date, action: e.type, problemId: e.problemId, timestamp: new Date(e.ts).toISOString()
@@ -1231,7 +1231,7 @@
     const dailyHistory = {};
     (parsed.dailyCalendar || []).forEach(d=>{
       if(!d.date) return;
-      dailyHistory[d.date] = { problemId: d.problemId || null, note: d.note || '' };
+      dailyHistory[d.date] = { problemId: d.problemId || null, note: d.note || '', extended: !!d.extended };
     });
     data.problems = newProblems;
     data.events = events;
