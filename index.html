@@ -603,6 +603,8 @@
     const p = data.problems.find(x=>x.id===prevEntry.problemId);
     if(!p || !p.daily) return null;
     if(isSolved(p.id)) return null;
+    const gaveUpThen = data.events.some(e=>e.problemId===prevEntry.problemId && e.type==='giveup' && e.date===mostRecentDate);
+    if(gaveUpThen) return null;
     return { id: p.id, prevStr: mostRecentDate };
   }
 
@@ -610,9 +612,16 @@
     const today = todayStr();
     data.dailyHistory = data.dailyHistory || {};
     const existing = data.dailyHistory[today];
-    if(existing && data.problems.find(p=>p.id===existing.problemId)){
-      data.dailyCurrent = { id: existing.problemId, date: today };
-      return;
+    if(existing){
+      const gaveUpToday = data.events.some(e=>e.problemId===existing.problemId && e.type==='giveup' && e.date===today);
+      if(gaveUpToday){
+        data.dailyCurrent = null;
+        return;
+      }
+      if(data.problems.find(p=>p.id===existing.problemId)){
+        data.dailyCurrent = { id: existing.problemId, date: today };
+        return;
+      }
     }
     const pool = activePool(dailyPool());
     if(pool.length === 0){ data.dailyCurrent = null; if(existing) delete data.dailyHistory[today]; return; }
@@ -642,15 +651,7 @@
     const today = todayStr();
     data.events.push({ id: genId(), problemId, type, date: today, ts: Date.now() });
     if(type === 'giveup'){
-      const p = data.problems.find(x=>x.id===problemId);
-      if(p && p.daily){
-        p.daily = false;
-        if(data.dailyCurrent && data.dailyCurrent.id === problemId) data.dailyCurrent = null;
-        data.dailyHistory = data.dailyHistory || {};
-        if(data.dailyHistory[today] && data.dailyHistory[today].problemId === problemId){
-          delete data.dailyHistory[today];
-        }
-      }
+      if(data.dailyCurrent && data.dailyCurrent.id === problemId) data.dailyCurrent = null;
     }
   }
 
@@ -754,10 +755,17 @@
     ensureDailyForToday();
     const card = document.getElementById('dailyCard');
     if(!data.dailyCurrent){
+      const today = todayStr();
+      const todayEntry = data.dailyHistory && data.dailyHistory[today];
+      const gaveUpToday = !!(todayEntry && data.events.some(e=>e.problemId===todayEntry.problemId && e.type==='giveup' && e.date===today));
       const fullPool = dailyPool();
-      card.innerHTML = fullPool.length
-        ? `<div class="empty-state"><p>All daily problems solved 🎉</p><p>Add more problems to the daily pool.</p></div>`
-        : `<div class="empty-state"><p>No daily problem today.</p><p>Add a problem and check "Add to daily pool".</p></div>`;
+      if(gaveUpToday){
+        card.innerHTML = `<div class="empty-state"><p>You gave up on today's daily problem.</p><p>A new one will be assigned tomorrow.</p></div>`;
+      } else {
+        card.innerHTML = fullPool.length
+          ? `<div class="empty-state"><p>All daily problems solved 🎉</p><p>Add more problems to the daily pool.</p></div>`
+          : `<div class="empty-state"><p>No daily problem today.</p><p>Add a problem and check "Add to daily pool".</p></div>`;
+      }
       return;
     }
     const p = data.problems.find(x=>x.id===data.dailyCurrent.id);
