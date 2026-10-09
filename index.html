@@ -47,7 +47,8 @@
   [data-theme="blue"]{ --primary:#4C8DFF; --primary-hover:#3B72D6; }
 
   *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html{ height:100%; }
+  html{ height:100%; overflow-x:hidden; }
+  body{ overflow-x:hidden; }
   body{
     margin:0;
     font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
@@ -128,10 +129,10 @@
   }
   html[data-layout="mobile"] .card{ padding: 24px 20px; }
   .card .meta{ font-size:12px; color: var(--ink-faint); margin-bottom:10px; display:flex; justify-content:space-between; }
-  .source-line{ font-size:13px; color: var(--ink-soft); margin-bottom:14px; }
+  .source-line{ font-size:13px; color: var(--ink-soft); margin-bottom:14px; overflow-wrap:anywhere; }
   .source-line a{ color: var(--primary); text-decoration:none; }
   .source-line a:hover{ text-decoration:underline; }
-  .problem-text{ font-family:'Source Serif 4', Georgia, serif; font-size:19px; line-height:1.65; white-space: pre-wrap; }
+  .problem-text{ font-family:'Source Serif 4', Georgia, serif; font-size:19px; line-height:1.65; white-space: pre-wrap; overflow-wrap:anywhere; max-width:100%; }
   .empty-state{ text-align:center; color: var(--ink-soft); font-size:14px; padding: 20px 0; }
   .empty-state p{ margin: 0 0 14px; }
 
@@ -162,7 +163,7 @@
   .toast{ font-size:13px; color: var(--ink-soft); margin-top:10px; height:16px; transition: opacity 0.4s; }
   .solved-note{ font-size:13px; color:var(--solved); background:var(--solved-bg); border:1px solid rgba(62,207,142,0.35); border-radius:4px; padding:8px 12px; margin-bottom:14px; }
   .hint-note{ font-size:12px; color:var(--hint); margin-top:10px; }
-  .note-box{ font-family:'Source Serif 4', Georgia, serif; font-size:14px; line-height:1.55; color:var(--note); background:var(--note-bg); border:1px solid rgba(76,141,255,0.35); border-radius:4px; padding:10px 12px; margin:14px 0 6px; white-space:pre-wrap; }
+  .note-box{ font-family:'Source Serif 4', Georgia, serif; font-size:14px; line-height:1.55; color:var(--note); background:var(--note-bg); border:1px solid rgba(76,141,255,0.35); border-radius:4px; padding:10px 12px; margin:14px 0 6px; white-space:pre-wrap; overflow-wrap:anywhere; max-width:100%; }
 
   /* Calendar */
   .cal-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
@@ -205,7 +206,7 @@
   .modal h3{ margin:0 0 4px; font-family:'Source Serif 4', Georgia, serif; font-size:18px; }
   .modal .modal-source{ font-size:13px; color: var(--ink-soft); margin-bottom:14px; }
   .modal .modal-source a{ color: var(--primary); }
-  .modal .modal-text{ font-family:'Source Serif 4', Georgia, serif; font-size:17px; line-height:1.6; margin-bottom:20px; white-space:pre-wrap; }
+  .modal .modal-text{ font-family:'Source Serif 4', Georgia, serif; font-size:17px; line-height:1.6; margin-bottom:20px; white-space:pre-wrap; overflow-wrap:anywhere; max-width:100%; }
   .modal .row{ display:flex; gap:10px; justify-content:flex-end; }
   .modal input, .modal textarea{
     width:100%; font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:16px; padding:11px 12px;
@@ -229,6 +230,8 @@
   }
   .bn-item svg{ width:21px; height:21px; }
   .bn-item.active{ color: var(--primary); }
+  .katex-display{ overflow-x:auto; overflow-y:hidden; max-width:100%; padding-bottom:2px; }
+  .katex{ white-space:normal; }
 </style>
 </head>
 <body>
